@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en" data-country="pl" class="webp webp-alpha webp-animation webp-lossless curr_pl ru hide" data-lang="ru"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="/assets/-pre--chiken-5/index.html">--><base href=".">
+    
+    <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover" name="viewport">
+    <meta content="ie=edge" http-equiv="X-UA-Compatible">
+    <meta name="format-detection" content="telephone=no">
+    <title>Spiele</title>
+    <link rel="icon" type="image/png" href="./pics/favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/svg+xml" href="./pics/favicon.svg">
+    <link rel="shortcut icon" href="./pics/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="./pics/apple-touch-icon.png">
+    <link href="./index_files/main.css" rel="stylesheet">
+  </head>
+
+  <body onload="init();">
+    <div class="preloader hide">
+      <img alt="preloader" src="./index_files/preloader.svg">
+    </div>
+    <div class="blur__wrap">
+      <div class="wrapper">
+        <!-- <div id="particles-js"><canvas class="particles-js-canvas-el" style="width: 100%; height: 100%;"></canvas></div> -->
+        <div class="lang_switcher_outer">
+            <div class="lang_switcher">
+              <div class="curr_lang">
+                <span>
+                </span>
+              </div>
+            </div>
+            <ul class="lang_list">
+              <li class="lang_list_item" data-lang="en">
+                <span>en</span>
+              </li>
+              <li class="lang_list_item" data-lang="de">
+                
+                <span>de</span>
+              </li>
+              <li class="lang_list_item" data-lang="lt">
+                
+                <span>lt</span>
+              </li>
+              <li class="lang_list_item" data-lang="ro">
+                
+                <span>ro</span>
+              </li>
+              <li class="lang_list_item" data-lang="es">
+                
+                <span>es</span>
+              </li>
+              <li class="lang_list_item" data-lang="pl">
+                
+                <span>pl</span>
+              </li>
+              <li class="lang_list_item curr" data-lang="ru">
+                
+                <span>ru</span>
+              </li>
+              <li class="lang_list_item" data-lang="fi">
+                
+                <span>fi</span>
+              </li>
+              <li class="lang_list_item" data-lang="pt">
+                
+                <span>pt</span>
+              </li>
+              <li class="lang_list_item" data-lang="hu">
+                
+                <span>hu</span>
+              </li>
+              <li class="lang_list_item" data-lang="fr">
+                
+                <span>fr</span>
+              </li>
+              <li class="lang_list_item" data-lang="ph">
+                
+                <span>ph</span>
+              </li>
+              <li class="lang_list_item" data-lang="vn">                
+                <span>vn</span>
+              </li>
+              <li class="lang_list_item" data-lang="th">                
+                <span>th</span>
+              </li>
+              <li class="lang_list_item" data-lang="jp">                
+                <span>jp</span>
+              </li>
+              <li class="lang_list_item" data-lang="dk">                
+                <span>dk</span>
+              </li>
+              <li class="lang_list_item" data-lang="no">                
+                <span>no</span>
+              </li>
+              <li class="lang_list_item" data-lang="gr">                
+                <span>gr</span>
+              </li>
+              <li class="lang_list_item" data-lang="lv">
+                <span>lv</span>
+              </li>
+              <li class="lang_list_item" data-lang="ee">
+                <span>ee</span>
+              </li>
+              <li class="lang_list_item" data-lang="sk">
+                <span>sk</span>
+              </li>
+              <li class="lang_list_item" data-lang="bg">
+                <span>bg</span>
+              </li>
+            </ul>
+        </div>
+
+        <div class="container">
+          <div class="game" id="game__wheel">
+            <div id="animation_container">
+              <div class="balance_container">
+                <div class="balance-text">
+                  <span class="en">Balance</span>
+                  <span class="de">Kontostand</span>
+                  <span class="pl">Saldo</span>
+                  <span class="ru">Баланс</span>
+                  <span class="fi">Saldo</span>
+                  <span class="pt">Saldo</span>
+                  <span class="cz">Zůstatek</span>
+                  <span class="es">Saldo</span>
+                  <span class="hu">Egyenleg</span>
+                  <span class="fr">Solde</span>
+                  <span class="ph">Balanse</span>
+                  <span class="vn">Số dư</span>
+                  <span class="th">ยอดคงเหลือ</span>
+                  <span class="jp">残高</span>
+                  <span class="dk">Saldo</span>
+                  <span class="no">Saldo</span>
+                  <span class="gr">Υπόλοιπο</span>
+                  <span class="lt">Balansas</span>
+                  <span class="lv">Bilance</span>
+                  <span class="ee">Saldo</span>
+                  <span class="sk">Zostatok</span>
+                  <span class="bg">Баланс</span>
+                  <span class="ro">Sold</span>
+
+                </div>
+                <div class="balance-count">
+                  <span id="balance">20 EUR</span>
+                </div>
+              </div>
+<div class="game-container" id="game">
+  <!-- ТРЕК: фон + фишки едут вместе -->
+  <div class="track" id="track">
+    <!-- Дверь/спавн: X-координата якоря -->
+    <div class="spawn" style="left:100px;"></div>
+
+    <div class="lanes">
+      <!-- left — центр кружка (из-за translateX(-50%)) -->
+      <div class="lane" style="left:240px; bottom: 310px;"><img src="pics/coef1.png"  alt="1.50x"></div>
+      <div class="lane" style="left:395px; bottom: 410px;"><img src="pics/coef2.png"  alt="1.85x"></div>
+      <div class="lane" style="left:555px; bottom: 510px;"><img src="pics/coef3.png"  alt="1.95x"></div>
+      <div class="lane" style="left:713px; bottom: 610px;"><img src="pics/coef4.png"  alt="2.00x"></div>
+      <div class="lane" style="left:870px;  bottom: 715px;"><img src="pics/coef5.png"  alt="2.10x"></div>
+      <div class="lane gold-egg" style="left:1035px;  bottom: 780px;"><img src="pics/gold-egg.png" alt="2.20x"></div>
+    </div>
+  </div>
+
+  <!-- Слой для блёсток (поверх, клики не перехватывает) -->
+  <div class="sparkles" id="sparkles">
+    <div class="sparkles-layer fast"></div>
+    <div class="sparkles-layer slow"></div>
+  </div>
+
+  <!-- Курица — отдельный слой (НЕ ездит с треком) -->
+  <div class="overlay">
+    <img style="left: -30px;" class="chicken" src="pics/chicken.png" alt="Chicken">
+  </div>
+</div>
+
+            </div>
+            <div class="btns btns_ready visible" id="btns_ready">
+              <button type="button" class="claim-btn button disabled" id="cash-btn">
+                <span class="en">Cash Out</span>
+                <span class="de">Auszahlen</span>
+                <span class="pl">Wypłać</span>
+                <span class="ru">Вывести</span>
+                <span class="fi">Nosta</span>
+                <span class="pt">Sacar</span>
+                <span class="cz">Vybrat</span>
+                <span class="es">Retirar</span>
+                <span class="hu">Kifizetés</span>
+                <span class="fr">Retirer</span>
+                <span class="ph">Mag-cashout</span>
+                <span class="vn">Rút tiền</span>
+                <span class="th">ถอนเงิน</span>
+                <span class="jp">キャッシュアウト</span>
+                <span class="dk">Udbetal</span>
+                <span class="no">Ta ut</span>
+                <span class="gr">Ανάληψη</span>
+                <span class="lt">Išmokėti</span>
+                <span class="lv">Izņemt</span>
+                <span class="ee">Välja võtta</span>
+                <span class="sk">Vybrať</span>
+                <span class="bg">Изтеглете печалбата</span>
+                <span class="ro">Retrage câștigurile</span>
+              </button>
+              <button type="button" class="go-btn start-btn button" id="go-btn">
+                <span class="en">Go</span>
+                <span class="de">WEITER</span>
+                <span class="pl">DALEJ</span>
+                <span class="ru">ДАЛЕЕ</span>
+                <span class="fi">SEURAAVA</span>
+                <span class="pt">CONTINUAR</span>
+                <span class="cz">DALŠÍ</span>
+                <span class="es">SIGUIENTE</span>
+                <span class="hu">TOVÁBB</span>
+                <span class="fr">SUIVANT</span>
+                <span class="ph">SUSUNOD</span>
+                <span class="vn">TIẾP TỤC</span>
+                <span class="th">ดำเนินการต่อ</span>
+                <span class="jp">次へ</span>
+                <span class="dk">NÆSTE</span>
+                <span class="no">FORTSETT</span>
+                <span class="gr">ΣΥΝΕΧΕΙΑ</span>
+                <span class="lt">TĘSTI</span>
+                <span class="lv">TURPINĀT</span>
+                <span class="ee">JÄTKA</span>
+                <span class="sk">POKRAČOVAŤ</span>
+                <span class="bg">НАПРЕД</span>
+                <span class="ro">MERGERE</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-blue">
+          <div class="bg-bottom">
+            <picture>
+              <source srcset="pics/fire.png" type="image/webp">
+              <img src="./pics/fire.png" alt="bottom">
+            </picture>
+          </div>
+        </div>
+        <img src="pics/cowboy.png" alt="cowboy" class="cowboy">
+        <img src="pics/MasterCard_Logo 1.png" alt="MasterCard_Logo" class="MasterCard_Logo">
+        <div class="popup popup_1" id="popup">
+          <div class="popup__inner">
+            <div class="popup__window" id="popup__window_1">
+              <div class="popup__content">
+                <div class="popup__img">
+                  <picture>
+                    <source srcset="pics/guns.png" type="image/webp">
+                    <img src="./pics/guns.png" alt="chicken">
+                  </picture>
+                </div>
+                <div class="popup__title">
+                  <span class="en">You have won <br> a bonus</span>
+                  <span class="de">Sie haben einen <br>
+                    Bonus von
+                  </span>
+                  <span class="pl">Wygrałeś bonus </span>
+                  <span class="ru">Вы выиграли бонус </span>
+                  <span class="fi">Olet voittanut </span>
+                  <span class="pt">Você ganhou <br>
+                    um bônus
+                  </span>
+                  <span class="cz">Vyhráli jste bonus</span>
+                  <span class="es">Has ganado un bono </span>
+                  <span class="hu">Nyereménye </span>
+                  <span class="fr">Vous avez gagné un bonus</span>
+                  <span class="ph">Nanalo ka ng bonus na </span>
+                  <span class="vn">Bạn đã thắng thưởng </span>
+                  <span class="th">คุณได้รับโบนัสสูงสุด </span>
+                  <span class="dk">Du har vundet en bonus på</span>
+                  <span class="no">Du har vunnet en bonus på</span>
+                  <span class="gr">Κερδίσατε μπόνους</span>
+                  <span class="lt">Jūs laimėjote premiją </span>
+                  <span class="lv">Jūs esat <br>
+                    laimējis bonusu</span>
+                  <span class="ee">Olete võitnud boonuse</span>
+                  <span class="sk">Vyhrali <br>
+                    ste bonus</span>
+                  <span class="bg">Спечелихте <br> бонус</span>
+                  <span class="ro">Ai câștigat <br> un bonus de</span>
+                </div>
+                
+                <div class="popup__bonus">
+                  <span class="bonus" data-text="1000 EUR">1000 EUR</span>
+                </div>
+                <div class="popup__bonus__spin">
+                  <span class="en"> + 250 Free SPINS</span>
+                  <span class="de"> + 250 Freispiele gewonnen</span>
+                  <span class="pl"> + 250 Darmowych Spinów</span>
+                  <span class="ru"> + 250 бесплатных вращений</span>
+                  <span class="fi"> + 250 ilmaiskierrosta bonuksena</span>
+                  <span class="pt"> + 250 Giros Grátis</span>
+                  <span class="cz"> + 250 zatočení zdarma</span>
+                  <span class="es"> + 250 Giros Gratis</span>
+                  <span class="hu"> + 250 ingyenes pörgetés</span>
+                  <span class="fr"> + 250 Tours Gratuits</span>
+                  <span class="ph"> + 250 Libreng Spins</span>
+                  <span class="vn"> + 250 Vòng Quay Miễn Phí</span>
+                  <span class="th"> + 250 ฟรีสปิน</span>
+                  <span class="jp">
+                    + 250 回のフリースピンボーナスを獲得しました。</span>
+                  <span class="dk"> + 250 Gratis Spins</span>
+                  <span class="no"> + 250 Gratisspinn</span>
+                  <span class="gr"> + 250 Δωρεάν Περιστροφές</span>
+                  <span class="lt"> + 250 Nemokamų Sukimų</span>
+                  <span class="lv"> + 250 Bezmaksas Griezieniem</span>
+                  <span class="ee"> + 250 Tasuta Keerutust</span>
+                  <span class="sk"> + 250 Voľných Spinov</span>
+                  <span class="bg"> + 250 безплатни завъртания</span>
+                  <span class="ro">+ 250 Rotiri Gratuite</span>
+                </div>
+
+                <a href="{offer}" class="popup__terms">
+                  <span class="en">Bonus T&amp;C's</span>
+                  <span class="de">Bonus-Bedingungen</span>
+                  <span class="pl">Warunki bonusu</span>
+                  <span class="ru">Условия бонуса</span>
+                  <span class="fi">Bonuksen ehdot</span>
+                  <span class="pt">Termos e Condições do Bônus</span>
+                  <span class="cz">Podmínky bonusu</span>
+                  <span class="es">Términos y condiciones del bono</span>
+                  <span class="hu">Bónusz feltételek</span>
+                  <span class="fr">Termes et conditions du bonus</span>
+                  <span class="ph">Mga Tuntunin at Kondisyon ng Bonus</span>
+                  <span class="vn">Điều khoản và Điều kiện của Bonus</span>
+                  <span class="th">ข้อกำหนดและเงื่อนไขโบนัส</span>
+                  <span class="jp">ボーナス利用規約</span>
+                  <span class="dk">Bonusbetingelser</span>
+                  <span class="no">Bonusvilkår</span>
+                  <span class="gr">Όροι και Προϋποθέσεις του Μπόνους</span>
+                  <span class="lt">Premijos sąlygos</span>
+                  <span class="lv">Bonusa noteikumi</span>
+                  <span class="ee">Boonuse tingimused</span>
+                  <span class="sk">Podmienky bonusu</span>
+                  <span class="bg">Условия за бонуса</span>
+                  <span class="ro">Termeni și condiții bonus</span>
+                </a>
+
+                <a href="{offer}" class="popup__btn popup__btn-first button go-btn start-btn">
+                  <span class="en">Get bonus</span>
+                  <span class="de">Bonus holen</span>
+                  <span class="pl">Odbierz bonus</span>
+                  <span class="ru">Получить бонус</span>
+                  <span class="fi">Lunasta bonus</span>
+                  <span class="pt">Obter bônus</span>
+                  <span class="cz">Získat bonus</span>
+                  <span class="es">Obtener bono</span>
+                  <span class="hu">Bónusz megszerzése</span>
+                  <span class="fr">Obtenir le bonus</span>
+                  <span class="ph">Kunin ang bonus</span>
+                  <span class="vn">Nhận thưởng</span>
+                  <span class="th">รับโบนัส</span>
+                  <span class="jp">ボーナスを獲得</span>
+                  <span class="dk">Få bonus</span>
+                  <span class="no">Få bonus</span>
+                  <span class="gr">Λάβετε μπόνους</span>
+                  <span class="lt">Gauti premiją</span>
+                  <span class="lv">Saņemt bonusu</span>
+                  <span class="ee">Saa boonus</span>
+                  <span class="sk">Získať bonus</span>
+                  <span class="bg">Вземете бонус</span>
+                  <span class="ro">Revendică bonusul</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+  <script src="./index_files/createjs.min.js"></script>
+  <script src="./index_files/anim.js"></script>
+  <script src="./index_files/modernizr-webp.js"></script>
+  <script src="./index_files/particles.min.js"></script>
+  <script src="./index_files/index.js"></script>
+
+<script>
+/* ===================== DOM ===================== */
+const goBtn     = document.getElementById('go-btn');
+const cashBtn   = document.getElementById('cash-btn');
+const balanceEl = document.getElementById('balance');
+
+const container = document.getElementById('game');
+const track     = document.getElementById('track');
+const chicken   = document.querySelector('.chicken');
+const lanes     = [...document.querySelectorAll('.lane')];
+const spawnEl   = document.querySelector('.spawn');
+
+/* Sparkles */
+const sparklesEl    = document.getElementById('sparkles');
+const sparkleLayers = sparklesEl ? [...sparklesEl.querySelectorAll('.sparkles-layer')] : [];
+
+/* Popup */
+const popup    = document.getElementById('popup');
+const popupWin = document.getElementById('popup__window_1');
+
+/* ===================== CONFIG ===================== */
+const CONFIG = {
+  desktop: {
+    MAX_TRACK_WIDTH: 1260,
+    CHICKEN_HALF_W: 90,
+    BASE_BOTTOM: 22,
+    CHICKEN_X_OFFSET: 40,
+    SPARKLES_TO_POPUP_DELAY: 1000,
+    TRACK_FALL_PX:     [100, 200, 305, 415, 530, 640],
+    CHICKEN_BOTTOM_PX: [ -5,  2,  4,   -10,  -19,  -15],
+    START_POS: { mode: 'absolute', left: -15, bottom: 22 }
+  },
+  mobile: {
+    MAX_TRACK_WIDTH: 1260,
+    CHICKEN_HALF_W: 90,
+    BASE_BOTTOM: 18,
+    CHICKEN_X_OFFSET: 48,
+    SPARKLES_TO_POPUP_DELAY: 1000,
+    TRACK_FALL_PX:     [100, 205, 310, 430, 510, 640],
+    CHICKEN_BOTTOM_PX: [-18,  -11,  -11,  -33,  -10, -29],
+    START_POS: { mode: 'absolute', left: 22, bottom: 15 }
+  }
+};
+function pickConfig(){ return matchMedia('(max-width:540px)').matches ? CONFIG.mobile : CONFIG.desktop; }
+let CFG = pickConfig();
+let isMobile = matchMedia('(max-width:540px)').matches;
+
+/* мобильные bottom'ы у лейнов */
+function adjustLanesForMobile(){
+  if (!matchMedia('(max-width:540px)').matches) return;
+  const bottoms = [280, 380, 490, 595, 690, 780];
+  document.querySelectorAll('.lane').forEach((lane,i)=>{
+    if (bottoms[i]!=null) lane.style.bottom = bottoms[i] + 'px';
+  });
+}
+addEventListener('load', adjustLanesForMobile);
+addEventListener('resize', adjustLanesForMobile);
+
+/* ===================== SETTINGS (из CFG) ===================== */
+let MAX_TRACK_WIDTH         = CFG.MAX_TRACK_WIDTH;
+let CHICKEN_HALF_W          = CFG.CHICKEN_HALF_W;
+let BASE_BOTTOM             = CFG.BASE_BOTTOM;
+let CHICKEN_X_OFFSET        = CFG.CHICKEN_X_OFFSET;
+let SPARKLES_TO_POPUP_DELAY = CFG.SPARKLES_TO_POPUP_DELAY;
+let TRACK_FALL_PX           = CFG.TRACK_FALL_PX.slice();
+let CHICKEN_BOTTOM_PX       = CFG.CHICKEN_BOTTOM_PX.slice();
+let START_POS               = { ...CFG.START_POS };
+
+/* ===================== ECON ===================== */
+const MULTS = [1.50, 1.85, 1.95, 2.00, 2.10, 2.20];
+
+/* ===================== LANDING CONTROL ===================== */
+const LANDING_RAISE_DESKTOP = [30, 28, 28, 40, 43, 40];
+const LANDING_RAISE_MOBILE  = [30, 28, 29, 40, 41, 40];
+function landingRaiseFor(step){
+  const arr = isMobile ? LANDING_RAISE_MOBILE : LANDING_RAISE_DESKTOP;
+  const i = Math.min(step, arr.length-1);
+  return arr[i] || 0;
+}
+
+/* ===================== REALISTIC ARC (БАЛЛИСТИКА) ===================== */
+/* Единая гравитация и целевая высота апекса (px) для стабильной дуги */
+const G_UNIFIED = 1850;                // px/s^2 — одинаково на десктопе и мобилке
+const ARC_HEIGHT_DESKTOP = 60;         // целевая высота вершины дуги
+const ARC_HEIGHT_MOBILE  = 54;         // немного ниже на мобилке (меньше экран)
+
+const T_MIN = 0.48;                    // сек — чтобы не было «рывка»
+const T_MAX = 0.62;                    // сек — чтобы не было «зависания»
+
+/* Точечный твик высоты по шагам (обычно 0) */
+const LIFT_TWEAK_PX_BY_STEP = [0, 0, 0, 0, 0, 0];
+
+/* ===================== STATE ===================== */
+let step   = 0;
+let trackX = 0, trackY = 0;
+let sparklesPlayed = false, popupShown = false;
+
+let balanceValue = (() => {
+  const txt = (balanceEl?.textContent || '20').replace(/[^\d.,]/g,'').replace(',','.');
+  const n = parseFloat(txt); return Number.isFinite(n) ? n : 20;
+})();
+
+/* ===================== HELPERS ===================== */
+function centerXInTrack(el){
+  if (el.classList.contains('lane') || el.classList.contains('spawn')) {
+    return parseInt(el.style.left || '0', 10) || 0;
+  }
+  const r  = el.getBoundingClientRect();
+  const rt = track.getBoundingClientRect();
+  return r.left + r.width/2 - rt.left;
+}
+function clampTrackX(x){
+  const trackWidth = Math.min(track.offsetWidth||MAX_TRACK_WIDTH, MAX_TRACK_WIDTH);
+  const maxTravel  = Math.max(trackWidth - container.clientWidth, 0);
+  return Math.max(-maxTravel, Math.min(0, x));
+}
+function clampTrackY(y){
+  const maxTravel = Math.max(track.offsetHeight - container.clientHeight, 0);
+  return Math.min(maxTravel, Math.max(0, y));
+}
+function setChickenLeftByScreenX(xScreen){
+  chicken.style.left = (xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET) + 'px';
+}
+function laneCenterLeftOnScreen(laneEl){
+  const laneCenterTrack = centerXInTrack(laneEl);
+  const xScreen         = laneCenterTrack + trackX;
+  return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
+}
+
+function cssLeftFromScreenX(xScreen){
+  return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
+}
+function screenXFromCssLeft(cssLeft){
+  return cssLeft + CHICKEN_HALF_W - CHICKEN_X_OFFSET;
+}
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+
+
+async function jumpWithPanSync({
+  x0World, y0, x1World, y1,
+  panX0, panX1, panY0, panY1,
+  extraLift = 0
+}){
+  // --- физика дуги (унифицированная) ---
+  const g = (typeof G_UNIFIED !== 'undefined')
+    ? G_UNIFIED
+    : (isMobile ? (typeof G_MOBILE!=='undefined'?G_MOBILE:1800)
+                : (typeof G_DESKTOP!=='undefined'?G_DESKTOP:1850));
+
+  const arcBase = (typeof ARC_HEIGHT_DESKTOP !== 'undefined')
+    ? (isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP)
+    : (isMobile ? 82 : 86);
+
+  const stepLift = Array.isArray(LIFT_TWEAK_PX_BY_STEP)
+    ? (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0)
+    : 0;
+
+  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
+  let T   = Math.sqrt((8 * L) / g);
+  const T_MIN_LOCAL = (typeof T_MIN !== 'undefined') ? T_MIN : 0.48;
+  const T_MAX_LOCAL = (typeof T_MAX !== 'undefined') ? T_MAX : 0.62;
+  T = Math.max(T_MIN_LOCAL, Math.min(T_MAX_LOCAL, T));
+
+  const dx = x1World - x0World;
+  const dy = y1 - y0;
+  const vx = dx / T;
+  const vy = (dy + 0.5 * g * T * T) / T;
+
+  // --- анимация в одном rAF-цикле: и прыжок, и панорама ---
+  const ms = T * 1000;
+  const t0 = performance.now();
+
+  const prevTransCh = chicken.style.transition;
+  const prevWCCh    = chicken.style.willChange;
+  const prevTransTr = track.style.transition;
+  const prevWCTr    = track.style.willChange;
+
+  chicken.style.transition = 'none';
+  chicken.style.willChange = 'left, bottom';
+  track.style.transition   = 'none';
+  track.style.willChange   = 'transform';
+
+  return new Promise(resolve=>{
+    function frame(now){
+      let k = (now - t0) / ms; if (k > 1) k = 1;
+      const tt = k * T;
+
+      // Панорама (камера) синхронно с прыжком
+      const curTrackX = lerp(panX0, panX1, k);
+      const curTrackY = lerp(panY0, panY1, k);
+      track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
+
+      // Мировая позиция курицы -> экран -> CSS
+      const xWorld = x0World + vx * tt;
+      const y      = y0 + vy * tt - 0.5 * g * tt * tt;
+
+      const xScreen = xWorld + curTrackX;
+      const cssLeft = cssLeftFromScreenX(xScreen);
+
+      chicken.style.left   = (Math.round(cssLeft * 2) / 2) + 'px';
+      chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
+
+      if (k < 1){
+        requestAnimationFrame(frame);
+      } else {
+        // Финализируем положения
+        trackX = panX1; trackY = panY1;
+        track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
+        chicken.style.left   = cssLeftFromScreenX(x1World + trackX) + 'px';
+        chicken.style.bottom = y1 + 'px';
+
+        requestAnimationFrame(()=>{
+          chicken.style.transition = prevTransCh || '';
+          chicken.style.willChange = prevWCCh || '';
+          track.style.transition   = prevTransTr || '';
+          track.style.willChange   = prevWCTr || '';
+          resolve();
+        });
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+
+
+
+/* ===================== РЕАЛИСТИЧНЫЙ ПРЫЖОК (парабола) ===================== */
+function jumpBezier({
+  x0, y0, x1, y1,
+  duration = null,   // больше не используется; оставлен для совместимости
+  extraLift = 0,     // доп. поднятие апекса (px), в т.ч. через data-arc-lift
+  biasOverride = null
+}){
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+
+  // База для апекса
+  const arcBase   = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
+  const stepLift  = Array.isArray(LIFT_TWEAK_PX_BY_STEP)
+    ? (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0)
+    : 0;
+
+  // Итоговая желаемая высота вершины дуги (px)
+  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
+
+  // Время полёта из желаемой высоты апекса: L = g*T^2/8  =>  T = sqrt(8L/g)
+  const g = G_UNIFIED;
+  let T = Math.sqrt((8 * L) / g);
+  T = Math.max(T_MIN, Math.min(T_MAX, T)); // ограничим, чтобы ощущалось одинаково
+
+  // Скорости, чтобы точно попасть в (x1,y1) за время T при данной «гравитации»
+  const vx = dx / T;
+  const vy = (dy + 0.5 * g * T * T) / T;
+
+  const ms = T * 1000;
+  const t0 = performance.now();
+
+  const prevTransition = chicken.style.transition;
+  const prevWillChange = chicken.style.willChange;
+  chicken.style.transition = 'none';
+  chicken.style.willChange = 'left, bottom';
+
+  return new Promise(resolve=>{
+    function frame(now){
+      let k = (now - t0) / ms; if (k > 1) k = 1;
+      const tt = k * T;
+
+      // Параболическая траектория
+      const x = x0 + vx * tt;
+      const y = y0 + (vy * tt) - (0.5 * g * tt * tt);
+
+      chicken.style.left   = (Math.round(x * 2) / 2) + 'px';
+      chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
+
+      if (k < 1){
+        requestAnimationFrame(frame);
+      } else {
+        chicken.style.left   = x1 + 'px';
+        chicken.style.bottom = y1 + 'px';
+        requestAnimationFrame(()=>{
+          chicken.style.transition = prevTransition || '';
+          chicken.style.willChange = prevWillChange || '';
+          resolve();
+        });
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+
+/* ===================== АНИМАЦИИ / ЭКОНОМИКА ===================== */
+function flipToCoin(laneEl){
+  if (laneEl.classList.contains('gold-egg')) return;
+  if (laneEl.classList.contains('flipped'))  return;
+  const img = laneEl.querySelector('img');
+  laneEl.classList.add('flipped');
+  img.classList.add('flip-out');
+  setTimeout(()=>{
+    img.src = 'pics/gold-coin.png';
+    img.alt = 'Coin';
+    img.classList.remove('flip-out');
+    img.classList.add('flip-in');
+    setTimeout(()=> img.classList.remove('flip-in'), 200);
+  },200);
+}
+function animateBalance(from, to, ms=450){
+  const t0 = performance.now();
+  const tick = (t) => {
+    const k = Math.min((t - t0)/ms, 1);
+    balanceEl.textContent = (from + (to - from)*k).toFixed(2) + ' EUR';
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+function preciseMul(a,b){
+  const aStr=String(a), bStr=String(b);
+  const aDec=(aStr.split('.')[1]||'').length, bDec=(bStr.split('.')[1]||'').length;
+  const fA=Math.round(a*Math.pow(10,aDec)), fB=Math.round(b*Math.pow(10,bDec));
+  return (fA*fB)/Math.pow(10,aDec+bDec);
+}
+
+/* ===================== SPARKLES / POPUP ===================== */
+function playSparklesOnce(){
+  if (!sparklesEl || sparklesPlayed) return;
+  sparklesPlayed = true;
+  sparkleLayers.forEach(l => {
+    l.style.animation = 'none'; void l.offsetWidth; l.style.animation = '';
+    l.style.animationPlayState = 'running';
+  });
+  sparklesEl.classList.add('active');
+  setTimeout(()=> sparklesEl.classList.remove('active'), 3500);
+}
+function openPopup(){
+  if (!popup || popupShown) return;
+  popupShown = true;
+  popup.style.display='block'; popup.style.visibility='visible';
+  popup.style.opacity='1'; popup.style.pointerEvents='auto';
+  popup.removeAttribute('aria-hidden');
+  if (popupWin){
+    popupWin.style.display='block'; popupWin.style.transform='scale(0.92)';
+    popupWin.style.opacity='0';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      popupWin.style.transition='transform .25s ease, opacity .25s ease';
+      popupWin.style.transform='scale(1)'; popupWin.style.opacity='1';
+    }));
+  }
+}
+
+/* ===================== START POSITION ===================== */
+function setInitialChicken(){
+  const prev = chicken.style.transition; chicken.style.transition='none';
+
+  let xScreen, bottomPx = BASE_BOTTOM;
+
+  if (START_POS.mode === 'absolute'){
+    const leftPx = START_POS.left;
+    chicken.style.left = `${leftPx}px`;
+    bottomPx = START_POS.bottom ?? BASE_BOTTOM;
+  } else if (START_POS.mode === 'lane0' && lanes[0]){
+    const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
+    xScreen  = lane0CenterX;
+    const b = parseInt(lanes[0].style.bottom||'0',10);
+    bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
+    setChickenLeftByScreenX(xScreen);
+  } else {
+    const spawnCenterX = centerXInTrack(spawnEl) + trackX;
+    xScreen  = spawnCenterX;
+    setChickenLeftByScreenX(xScreen);
+  }
+
+  chicken.style.bottom = bottomPx + 'px';
+  requestAnimationFrame(()=> chicken.style.transition = prev || '');
+}
+
+/* ===================== INIT ===================== */
+addEventListener('load', () => {
+  setInitialChicken();
+  balanceEl.textContent = balanceValue.toFixed(2) + ' EUR';
+});
+
+/* адаптация при ресайзе */
+addEventListener('resize', () => {
+  const newCFG = pickConfig();
+  isMobile = matchMedia('(max-width:540px)').matches;
+
+  if (newCFG !== CFG) {
+    CFG = newCFG;
+    MAX_TRACK_WIDTH         = CFG.MAX_TRACK_WIDTH;
+    CHICKEN_HALF_W          = CFG.CHICKEN_HALF_W;
+    BASE_BOTTOM             = CFG.BASE_BOTTOM;
+    CHICKEN_X_OFFSET        = CFG.CHICKEN_X_OFFSET;
+    SPARKLES_TO_POPUP_DELAY = CFG.SPARKLES_TO_POPUP_DELAY;
+    TRACK_FALL_PX           = CFG.TRACK_FALL_PX.slice();
+    CHICKEN_BOTTOM_PX       = CFG.CHICKEN_BOTTOM_PX.slice();
+    setInitialChicken();
+  }
+});
+
+/* ===================== MAIN CLICK ===================== */
+goBtn.addEventListener('click', async () => {
+  if (step >= lanes.length) return;
+
+  goBtn.classList.add('disabled');
+  setTimeout(()=> goBtn.classList.remove('disabled'), 400);
+  if (step === 0 && cashBtn) cashBtn.classList.remove('disabled');
+
+  const targetLane = lanes[step];
+
+  // Будущая панорама
+  const laneCenterTrack   = centerXInTrack(targetLane);
+  const anchorCenterTrack = centerXInTrack(spawnEl);
+  const panX1 = clampTrackX(-(laneCenterTrack - anchorCenterTrack));
+  const wantedFall = TRACK_FALL_PX[Math.min(step, TRACK_FALL_PX.length-1)] ?? 0;
+  const panY1 = clampTrackY(wantedFall);
+
+  const panX0 = trackX;
+  const panY0 = trackY;
+
+  // Цели по Y (как раньше)
+  const baseY = (CHICKEN_BOTTOM_PX[Math.min(step, CHICKEN_BOTTOM_PX.length-1)] ?? BASE_BOTTOM);
+  const y1 = baseY + landingRaiseFor(step);
+
+  // Текущая позиция курицы в МИРОВЫХ координатах
+  const hasX = chicken.style.left && chicken.style.left.endsWith('px');
+  const hasY = chicken.style.bottom && chicken.style.bottom.endsWith('px');
+  const cssLeft0 = hasX ? parseFloat(chicken.style.left)
+                        : (START_POS.mode==='absolute' ? START_POS.left : 0);
+  const x0Screen = screenXFromCssLeft(cssLeft0);
+  const x0World  = x0Screen - trackX;
+
+  const y0 = hasY ? parseFloat(chicken.style.bottom)
+                  : (START_POS.bottom ?? BASE_BOTTOM);
+
+  // Целевой x в МИРОВЫХ координатах (центр дорожки на треке)
+  const x1World = laneCenterTrack;
+
+  // Доп. лифт
+  const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
+  const extraLiftGlobal = 0;
+  const extraLift = extraLiftGlobal + laneLiftAttr;
+
+  // Полёт + синхронная панорама
+  await jumpWithPanSync({
+    x0World, y0, x1World, y1,
+    panX0, panX1, panY0, panY1,
+    extraLift
+  });
+
+  // Флип и экономика
+  flipToCoin(targetLane);
+
+  const mult = MULTS[step] || 1;
+  const from = balanceValue;
+  let next   = preciseMul(balanceValue, mult);
+  if (step === MULTS.length - 1) next = 1000;
+  balanceValue = next;
+  animateBalance(from, next, 450);
+
+  if (step === lanes.length - 1 || targetLane.classList.contains('gold-egg')){
+    chicken.classList.remove('celebrate'); void chicken.offsetWidth;
+    chicken.classList.add('celebrate');
+    playSparklesOnce();
+    setTimeout(openPopup, SPARKLES_TO_POPUP_DELAY);
+  }
+
+  step++;
+});
+
+
+/* ===================== API ===================== */
+function setSpawnChickenLeft(px){
+  START_POS.mode  = 'absolute';
+  START_POS.left  = Math.round(px);
+}
+function setSpawnChickenBottom(px){
+  START_POS.bottom = Math.round(px);
+}
+function respawnChicken({preserveY=false} = {}){
+  const prev = chicken.style.transition;
+  chicken.style.transition = 'none';
+  chicken.style.left = `${START_POS.left}px`;
+  if (!preserveY){
+    chicken.style.bottom = (START_POS.bottom ?? BASE_BOTTOM) + 'px';
+  }
+  requestAnimationFrame(()=> chicken.style.transition = prev || '');
+}
+
+window.GameSpawn = {
+  setSpawnChickenLeft,
+  setSpawnChickenBottom,
+  respawnChicken
+};
+</script>
+
+
+
+  
+<div id="preloadjs-container" style="visibility: hidden; position: absolute; height: 10px; width: 10px; overflow: hidden; transform: translate(-10px, -10px);"></div>
+</body>
+</html>
