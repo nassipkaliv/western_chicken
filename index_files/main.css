@@ -1947,7 +1947,7 @@ html.vn .button span {
   border-radius: 65px;
   border: 9px solid transparent;
   background:
-    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(transparent, transparent) padding-box,
     linear-gradient(180deg, #663310 0%, #BB6E2D 49%, #673410 100%) border-box;
 }
 
