@@ -1357,7 +1357,8 @@ html.vn .button span {
 	}
 
   .btns_ready.visible {
-    flex-direction: column-reverse;
+    flex-direction: row;
+		gap: 10px;
   }
 
   .MasterCard_Logo {
@@ -1495,9 +1496,9 @@ html.vn .button span {
 }
 
 .claim-btn {
-	border: 9px solid #ac0104;
-  border-radius: 25px;
-	background: linear-gradient(180deg, #cd2a2d 0%, #fd575a 49.52%, #b02426 100%);
+	border: 9px solid #a72e3a;
+  border-radius: 14px;
+	background: linear-gradient(180deg, #bc3a3c 0%, #dd3538 49.52%, #971e20 100%);
 	transform: none;
 }
 
@@ -1600,7 +1601,8 @@ html.vn .button span {
 	.cowboy {
     position: absolute;
     bottom: 0;
-    right: 0;
+    left: 50%;
+		transform: translateX(-50%);
     width: 50%;
     z-index: 104;
 	}
@@ -2132,14 +2134,15 @@ html.vn .button span {
 	}
 
 	.btns .button {
-		width: 35rem;
-		margin: 0 auto 4.5rem
+		width: 100%;
+		margin: 0;
 	}
 
 
   .claim-btn span {
-    font-size: 41px !important;
-  }
+    font-size: 36px !important;
+		-webkit-text-stroke: 1px #AD0205;
+	}
 
   .MasterCard_Logo {
       width: 95%;
@@ -2287,6 +2290,7 @@ html.vn .button span {
 	.container {
 		padding: 0 .5rem;
     margin-top: 13rem;
+		max-width: 100%;
 	}
 }
 
@@ -2307,10 +2311,6 @@ html.vn .button span {
 
 			.btns .button {
 				margin-bottom: 0rem;
-			}
-
-			.start-btn {
-				margin-bottom: 1.5rem !important;
 			}
 
 			body {
@@ -2633,12 +2633,12 @@ html.vn .button span {
 .start-btn span {
     font-family: var(--third-family);
     font-weight: 900;
-    font-size: 63px !important;
+    font-size: 58px !important;
     text-transform: uppercase;
     text-align: center;
     color: #fff;
     font-style: normal;
-    -webkit-text-stroke: 3px #096A3C;
+    -webkit-text-stroke: 1px #096A3C;
 }
 
 .popup__btn {
@@ -2651,7 +2651,7 @@ html.vn .button span {
 
 @media (max-width: 640px) {
     .start-btn span {
-        font-size: 45px !important;
+        font-size: 36px !important;
         white-space: nowrap;
     }
 
