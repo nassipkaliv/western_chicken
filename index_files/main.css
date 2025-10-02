@@ -2016,7 +2016,7 @@ html.vn .button span {
   left: 0; bottom: 0; /* якорь внизу */
   width: 100px;
   height: auto;
-  transform: translate3d(-10px, 32px, 0); /* смещение */
+  transform: translate3d(var(--dx, 0), var(--dy, 0), 0);
   will-change: transform;
   backface-visibility: hidden;
 }

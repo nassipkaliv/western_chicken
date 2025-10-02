@@ -443,7 +443,7 @@ const CONFIG = {
     CHICKEN_HALF_W: 90,
     BASE_BOTTOM: 22,
     CHICKEN_X_OFFSET: 40,
-    SPARKLES_TO_POPUP_DELAY: 1100, 
+    SPARKLES_TO_POPUP_DELAY: 1100,
     TRACK_FALL_PX:     [100, 200, 305, 415, 530, 640],
     CHICKEN_BOTTOM_PX: [ -5,   2,   4,  -10,  -19,  -15],
     START_POS: { mode: 'absolute', left: -15, bottom: 22 }
@@ -453,7 +453,7 @@ const CONFIG = {
     CHICKEN_HALF_W: 90,
     BASE_BOTTOM: 18,
     CHICKEN_X_OFFSET: 48,
-    SPARKLES_TO_POPUP_DELAY: 1100,  
+    SPARKLES_TO_POPUP_DELAY: 1100,
     TRACK_FALL_PX:     [100, 205, 310, 430, 510, 640],
     CHICKEN_BOTTOM_PX: [-18, -11, -11,  -33,  -10,  -29],
     START_POS: { mode: 'absolute', left: 22, bottom: 15 }
@@ -500,17 +500,17 @@ function landingRaiseFor(step){
 const G_UNIFIED = 1850;                // px/s^2
 const ARC_HEIGHT_DESKTOP = 60;
 const ARC_HEIGHT_MOBILE  = 54;
-
 const T_MIN = 0.48;
 const T_MAX = 0.62;
 
+/* Точечные твики высоты по шагам (если нужно) */
 const LIFT_TWEAK_PX_BY_STEP = [0, 0, 0, 0, 0, 0];
 
 /* ===================== STATE ===================== */
 let step   = 0;
 let trackX = 0, trackY = 0;
 let sparklesPlayed = false, popupShown = false;
-let isJumping = false; // 🔹 Блокировка повторных кликов
+let isJumping = false; // блокировка спама
 
 let balanceValue = (() => {
   const txt = (balanceEl?.textContent || '20').replace(/[^\d.,]/g,'').replace(',','.');
@@ -538,11 +538,6 @@ function clampTrackY(y){
 function setChickenLeftByScreenX(xScreen){
   chicken.style.left = (xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET) + 'px';
 }
-function laneCenterLeftOnScreen(laneEl){
-  const laneCenterTrack = centerXInTrack(laneEl);
-  const xScreen         = laneCenterTrack + trackX;
-  return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
-}
 function cssLeftFromScreenX(xScreen){
   return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
 }
@@ -551,7 +546,7 @@ function screenXFromCssLeft(cssLeft){
 }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-/* ===================== JUMP + PAN ===================== */
+/* ===================== JUMP + PAN (как раньше) ===================== */
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
@@ -562,7 +557,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // время полёта из высоты апекса
+  // Время полёта из высоты апекса
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -579,7 +574,6 @@ async function jumpWithPanSync({
   const prevTransTr = track.style.transition;
   const prevWCTr    = track.style.willChange;
 
-  // Без CSS-переходов, только rAF-кадры
   chicken.style.transition = 'none';
   chicken.style.willChange = 'left, bottom';
   track.style.transition   = 'none';
@@ -603,7 +597,7 @@ async function jumpWithPanSync({
       const xScreen = xWorld + curTrackX;
       const cssLeft = cssLeftFromScreenX(xScreen);
 
-      // Записываем напрямую (как раньше) — это и есть «та самая» траектория
+      // Записываем напрямую — это «та самая» траектория
       chicken.style.left   = (Math.round(cssLeft * 2) / 2) + 'px';
       chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
 
@@ -628,7 +622,6 @@ async function jumpWithPanSync({
     requestAnimationFrame(frame);
   });
 }
-
 
 /* ===================== ФЛИП МОНЕТЫ ===================== */
 const COIN_IMG_SRC = 'pics/gold-coin.png';
@@ -730,7 +723,6 @@ function setInitialChicken(){
   }
 
   chicken.style.bottom = bottomPx + 'px';
-  // важное: чтобы не конфликтовало с будущими translate во время прыжка
   chicken.style.transform = 'translateZ(0)';
 
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
@@ -760,7 +752,7 @@ addEventListener('resize', () => {
 /* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
   if (step >= lanes.length) return;
-  if (isJumping) return;   // 🔹 блокируем быстрые клики
+  if (isJumping) return;
   isJumping = true;
 
   goBtn.classList.add('disabled');
@@ -779,7 +771,7 @@ goBtn.addEventListener('click', async () => {
   const panX0 = trackX;
   const panY0 = trackY;
 
-  // Y-цель приземления
+  // ✅ Цель приземления КАК БЫЛО: добавляем landingRaiseFor(step)
   const baseY = (CHICKEN_BOTTOM_PX[Math.min(step, CHICKEN_BOTTOM_PX.length-1)] ?? BASE_BOTTOM);
   const y1 = baseY + landingRaiseFor(step);
 
@@ -796,7 +788,7 @@ goBtn.addEventListener('click', async () => {
   // Целевой x (мир)
   const x1World = laneCenterTrack;
 
-
+  // ✅ Подъём дуги КАК БЫЛО: только data-arc-lift (без landingRaise в extraLift)
   const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
   const extraLift = laneLiftAttr;
 
@@ -806,7 +798,7 @@ goBtn.addEventListener('click', async () => {
     extraLift
   });
 
-
+  // Флип и экономика
   flipToCoin(targetLane);
 
   const mult = MULTS[step] || 1;
@@ -816,7 +808,7 @@ goBtn.addEventListener('click', async () => {
   balanceValue = next;
   animateBalance(from, next, 450);
 
-  
+  // Финал
   const isFinal = (step === lanes.length - 1) || targetLane.classList.contains('gold-egg');
   if (isFinal) {
     chicken.classList.remove('celebrate'); void chicken.offsetWidth;
@@ -826,9 +818,10 @@ goBtn.addEventListener('click', async () => {
   }
 
   step++;
-  isJumping = false; 
+  isJumping = false;
 });
 
+/* ===================== API ===================== */
 function setSpawnChickenLeft(px){
   START_POS.mode  = 'absolute';
   START_POS.left  = Math.round(px);
@@ -847,6 +840,7 @@ function respawnChicken({preserveY=false} = {}){
 }
 window.GameSpawn = { setSpawnChickenLeft, setSpawnChickenBottom, respawnChicken };
 </script>
+
 
 
   
