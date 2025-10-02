@@ -436,22 +436,17 @@ const sparkleLayers = sparklesEl ? [...sparklesEl.querySelectorAll('.sparkles-la
 const popup    = document.getElementById('popup');
 const popupWin = document.getElementById('popup__window_1');
 
-/* ===================== iOS perf hints ===================== */
-if (track) {
+/* ===================== PERF HINTS ===================== */
+if (track){
   track.style.willChange = 'transform';
-  track.style.transform = 'translate3d(0,0,0)';
+  track.style.transform  = 'translate3d(0,0,0)';
   track.style.backfaceVisibility = 'hidden';
-  track.style.contain = 'paint'; // не даём браузеру тащить весь документ в рекалькуляции
 }
-if (chicken) {
+if (chicken){
   chicken.style.willChange = 'left, bottom';
   chicken.style.backfaceVisibility = 'hidden';
   chicken.style.transform = 'translateZ(0)';
 }
-
-/* Пассивные слушатели чтобы не блочить main-thread на iOS */
-window.addEventListener('touchstart', () => {}, { passive: true });
-window.addEventListener('touchmove',  () => {}, { passive: true });
 
 /* ===================== CONFIG ===================== */
 const CONFIG = {
@@ -563,30 +558,56 @@ function screenXFromCssLeft(cssLeft){
 }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-/* ===================== PRELOAD HEAVY ASSETS ===================== */
-(function preload(){
-  const bg = new Image();
-  bg.decoding = 'async';
-  bg.src = (getComputedStyle(track).backgroundImage || '')
-           .replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
-  const coin = new Image();
-  coin.src = 'pics/gold-coin.png';
-})();
+/* ===================== START POSITION ===================== */
+function setInitialChicken(){
+  const prev = chicken.style.transition;
+  chicken.style.transition = 'none';
 
-/* ===================== TRACK via WAAPI (без per-frame style.set) ===================== */
-function animateTrackWAAPI(panX0, panY0, panX1, panY1, durationMs){
-  // ключи — строго линейно, чтобы синхронизировать с нашей физикой (k = (t-t0)/T)
-  const anim = track.animate(
-    [
-      { transform: `translate3d(${Math.round(panX0)}px, ${Math.round(panY0)}px, 0)` },
-      { transform: `translate3d(${Math.round(panX1)}px, ${Math.round(panY1)}px, 0)` }
-    ],
-    { duration: Math.max(1, durationMs), easing: 'linear', fill: 'both' }
-  );
-  return anim;
+  let xScreen, bottomPx = BASE_BOTTOM;
+
+  if (START_POS.mode === 'absolute'){
+    const leftPx = START_POS.left;
+    chicken.style.left = `${leftPx}px`;
+    bottomPx = START_POS.bottom ?? BASE_BOTTOM;
+  } else if (START_POS.mode === 'lane0' && lanes[0]){
+    const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
+    xScreen  = lane0CenterX;
+    const b = parseInt(lanes[0].style.bottom||'0',10);
+    bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
+    setChickenLeftByScreenX(xScreen);
+  } else {
+    const spawnCenterX = centerXInTrack(spawnEl) + trackX;
+    xScreen  = spawnCenterX;
+    setChickenLeftByScreenX(xScreen);
+  }
+
+  chicken.style.bottom = bottomPx + 'px';
+  chicken.style.transform = 'translateZ(0)';
+
+  requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 
-/* ===================== JUMP + PAN (траектория как раньше, но трек на композиторе) ===================== */
+/* ===================== TRACK ANIMATION (CSS transition, линейно) ===================== */
+function animateTrackCSS(panX0, panY0, panX1, panY1, durationMs){
+  // Ставим стартовое положение (без перехода)
+  const prevTr = track.style.transition;
+  track.style.transition = 'none';
+  track.style.transform  = `translate3d(${Math.round(panX0)}px, ${Math.round(panY0)}px, 0)`;
+  // Форсим reflow чтобы переход применился со следующего кадра
+  void track.offsetWidth;
+  // Включаем линейный переход и отправляем к финишу
+  track.style.transition = `transform ${Math.max(1,durationMs)}ms linear`;
+  track.style.transform  = `translate3d(${Math.round(panX1)}px, ${Math.round(panY1)}px, 0)`;
+
+  // Вернём переход после окончания — полезно если у тебя в CSS другой transition
+  const timer = setTimeout(()=>{
+    track.style.transition = prevTr || '';
+  }, Math.max(1,durationMs)+20);
+
+  return () => clearTimeout(timer); // canceller на всякий
+}
+
+/* ===================== JUMP + PAN (траектория как раньше) ===================== */
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
@@ -597,7 +618,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // Время полёта из высоты апекса — как было
+  // время полёта из высоты апекса (как было)
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -609,29 +630,28 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
-  // Убираем CSS-переходы на время полёта
+  // Убираем transition у курицы на время полёта (чистый rAF)
   const prevTransCh = chicken.style.transition;
   const prevWCCh    = chicken.style.willChange;
   chicken.style.transition = 'none';
   chicken.style.willChange = 'left, bottom';
 
-  // Трек анимируем WAAPI (композитор), не трогаем style каждый кадр
-  const trackAnim = animateTrackWAAPI(panX0, panY0, panX1, panY1, ms);
+  // Трек анимируем ОДНИМ CSS-transition (без per-frame записи)
+  const cancel = animateTrackCSS(panX0, panY0, panX1, panY1, ms);
 
   return new Promise(resolve=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // Синхронизируемся по тому же k
+      // Синхронный curTrack* (только для расчёта курицы; сам трек едет CSS-переходом)
       const curTrackX = lerp(panX0, panX1, k);
       const curTrackY = lerp(panY0, panY1, k);
 
-      // Парабола (как раньше — чистая физика)
+      // Парабола — старая, «правильная» траектория
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // Экранные -> CSS left
       const xScreen = xWorld + curTrackX;
       const cssLeft = cssLeftFromScreenX(xScreen);
 
@@ -641,10 +661,10 @@ async function jumpWithPanSync({
       if (k < 1){
         requestAnimationFrame(frame);
       } else {
-        // Гарантируем итоговое положение трека и фиксируем state
-        try { trackAnim.finish(); } catch(e) {}
+        // Фиксируем финальные значения
+        cancel();
         trackX = panX1; trackY = panY1;
-        // На всякий случай руками проставим transform в финале (integer px)
+        // гарантированно выставляем финал (целые px чтобы не было пол-пикселя)
         track.style.transform = `translate3d(${Math.round(trackX)}px, ${Math.round(trackY)}px, 0)`;
 
         chicken.style.left   = cssLeftFromScreenX(x1World + trackX) + 'px';
@@ -661,7 +681,7 @@ async function jumpWithPanSync({
   });
 }
 
-/* ===================== ФЛИП МОНЕТЫ (с предзагрузкой) ===================== */
+/* ===================== ФЛИП МОНЕТЫ ===================== */
 const COIN_IMG_SRC = 'pics/gold-coin.png';
 const coinPreload = new Image();
 let coinReady = false;
@@ -737,35 +757,6 @@ function openPopup(){
   }
 }
 
-/* ===================== START POSITION ===================== */
-function setInitialChicken(){
-  const prev = chicken.style.transition;
-  chicken.style.transition = 'none';
-
-  let xScreen, bottomPx = BASE_BOTTOM;
-
-  if (START_POS.mode === 'absolute'){
-    const leftPx = START_POS.left;
-    chicken.style.left = `${leftPx}px`;
-    bottomPx = START_POS.bottom ?? BASE_BOTTOM;
-  } else if (START_POS.mode === 'lane0' && lanes[0]){
-    const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
-    xScreen  = lane0CenterX;
-    const b = parseInt(lanes[0].style.bottom||'0',10);
-    bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
-    setChickenLeftByScreenX(xScreen);
-  } else {
-    const spawnCenterX = centerXInTrack(spawnEl) + trackX;
-    xScreen  = spawnCenterX;
-    setChickenLeftByScreenX(xScreen);
-  }
-
-  chicken.style.bottom = bottomPx + 'px';
-  chicken.style.transform = 'translateZ(0)';
-
-  requestAnimationFrame(()=> chicken.style.transition = prev || '');
-}
-
 /* ===================== INIT ===================== */
 addEventListener('load', () => {
   setInitialChicken();
@@ -790,7 +781,7 @@ addEventListener('resize', () => {
 /* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
   if (step >= lanes.length) return;
-  if (isJumping) return;
+  if (isJumping) return;   // защита от дабл-кликов
   isJumping = true;
 
   goBtn.classList.add('disabled');
@@ -826,11 +817,11 @@ goBtn.addEventListener('click', async () => {
   // Целевой x (мир)
   const x1World = laneCenterTrack;
 
-  // Доп. лифт (если указан в data-arc-lift)
+  // Доп. лифт (через data-arc-lift)
   const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
   const extraLift = laneLiftAttr;
 
-  // Полёт + панорама (панорама на композиторе через WAAPI)
+  // Полёт + панорама
   await jumpWithPanSync({
     x0World, y0, x1World, y1,
     panX0, panX1, panY0, panY1,
@@ -847,7 +838,7 @@ goBtn.addEventListener('click', async () => {
   balanceValue = next;
   animateBalance(from, next, 450);
 
-  // Финал: тольoко на золотом яйце/последнем шаге
+  // финал — только на золотом яйце
   const isFinal = (step === lanes.length - 1) || targetLane.classList.contains('gold-egg');
   if (isFinal) {
     chicken.classList.remove('celebrate'); void chicken.offsetWidth;
