@@ -370,7 +370,7 @@
   <script src="./index_files/particles.min.js"></script>
   <script src="./index_files/index.js"></script>
 
-    <script>
+<script>
 /* ===================== DOM ===================== */
 const goBtn     = document.getElementById('go-btn');
 const cashBtn   = document.getElementById('cash-btn');
@@ -564,12 +564,15 @@ async function jumpWithPanSync({
         chicken.style.bottom = y1 + 'px';
 
         requestAnimationFrame(()=>{
-          chicken.style.transition = prevTransCh || '';
-          chicken.style.willChange = prevWCCh || '';
-          track.style.transition   = prevTransTr || '';
-          track.style.willChange   = prevWCTr || '';
-          resolve();
+          requestAnimationFrame(()=>{
+            chicken.style.transition = prevTransCh || '';
+            chicken.style.willChange = prevWCCh || '';
+            track.style.transition   = prevTransTr || '';
+            track.style.willChange   = prevWCTr || '';
+            resolve();
+          });
         });
+
       }
     }
     requestAnimationFrame(frame);
@@ -654,7 +657,9 @@ function openPopup(){
 
 /* ===================== START POSITION ===================== */
 function setInitialChicken(){
-  const prev = chicken.style.transition; chicken.style.transition='none';
+  const prev = chicken.style.transition;
+  chicken.style.transition = 'none'; // 🚫 убираем анимацию на старте
+
   let xScreen, bottomPx = BASE_BOTTOM;
 
   if (START_POS.mode === 'absolute'){
@@ -674,8 +679,13 @@ function setInitialChicken(){
   }
 
   chicken.style.bottom = bottomPx + 'px';
-  requestAnimationFrame(()=> chicken.style.transition = prev || '');
+
+  // 🔹 вернём transition после старта
+  requestAnimationFrame(()=>{
+    chicken.style.transition = prev || 'left .45s ease, bottom .45s ease';
+  });
 }
+
 
 /* ===================== INIT ===================== */
 addEventListener('load', () => {

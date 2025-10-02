@@ -1998,13 +1998,15 @@ html.vn .button span {
 
 /* Курица — должна уметь анимировать bottom */
 .overlay{ position:absolute; inset:0; z-index:3; pointer-events:none; }
-.chicken{
+.chicken {
   position: absolute;
-  left: 0;
-	left: -10px;
-  bottom: 32px;              /* базовая высота лап */
-  width: 100px; height: auto;
-  transition: left .45s ease, bottom .45s ease; /* добавили bottom */
+  left: -10px;
+  bottom: 32px;
+  width: 100px;
+  height: auto;
+  will-change: left, bottom;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 /* Флип монеток */
