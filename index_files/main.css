@@ -1314,13 +1314,6 @@ html.vn .button span {
 	-webkit-text-stroke: 1.2px #1144A3;
 }
 
-html.is-loading body {
-  opacity: 0;
-  visibility: hidden;
-  overflow: hidden;
-}
-
-
 .preloader {
   position: fixed;
   top: 0;
@@ -1928,6 +1921,9 @@ html.is-loading body {
   transition: opacity .25s ease;
 }
 
+.sparkles { contain: paint; will-change: transform, opacity; }
+
+
 /* Две «параллакс»-дорожки с разной скоростью/масштабом */
 .sparkles-layer{
   position: absolute;
@@ -2017,20 +2013,22 @@ html.is-loading body {
   z-index: 2;
 }
 
-/* Курица — должна уметь анимировать bottom */
-.overlay{ position:absolute; inset:0; z-index:3; pointer-events:none; }
+
+.overlay{
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  contain: layout paint;          
+}
 
 .chicken {
   position: absolute;
-  left: 0; 
-  bottom: 0;
+  left: 0; bottom: 0;
   width: 100px;
   height: auto;
-  transform: translate3d(0,0,0);
-  will-change: transform;        
+  transform: translateZ(0);
+  will-change: left, bottom;      
   backface-visibility: hidden;
+  contain: layout paint;           
 }
-
 
 
 /* Флип монеток */

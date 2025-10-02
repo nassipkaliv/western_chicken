@@ -522,14 +522,6 @@ function clampTrackY(y){
 function setChickenLeftByScreenX(xScreen){
   chicken.style.left = (xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET) + 'px';
 }
-
-function setChickenTransform(xScreenPx, yPx) {
-  const tx = Math.round( (xScreenPx - CHICKEN_HALF_W + CHICKEN_X_OFFSET) * 2 ) / 2;
-  const ty = Math.round( yPx * 2 ) / 2;
-  chicken.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
-}
-
-
 function laneCenterLeftOnScreen(laneEl){
   const laneCenterTrack = centerXInTrack(laneEl);
   const xScreen         = laneCenterTrack + trackX;
@@ -554,6 +546,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
+  // === ВРЕМЯ ПОЛЁТА — КАК БЫЛО ===
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -565,46 +558,69 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
-  const prevWCCh = chicken.style.willChange;
-  const prevWCTr = track.style.willChange;
-  const prevTrCh = chicken.style.transition;
-  const prevTrTr = track.style.transition;
+  const prevTransCh = chicken.style.transition;
+  const prevWCCh    = chicken.style.willChange;
+  const prevTransTr = track.style.transition;
+  const prevWCTr    = track.style.willChange;
 
-  chicken.style.willChange = 'transform';
-  chicken.style.transition  = 'none';
-  track.style.willChange    = 'transform';
-  track.style.transition    = 'none';
+  // как раньше
+  chicken.style.transition = 'none';
+  chicken.style.willChange = 'left, bottom';
+  track.style.transition   = 'none';
+  track.style.willChange   = 'transform';
+
+  // кэш префикса, чтобы не собирать cssText с нуля
+  const stylePrefix = (() => {
+    // сохраним остальные инлайновые стили курицы (если были)
+    const s = chicken.getAttribute('style') || '';
+    // удалим существующие left/bottom, будем подставлять заново
+    return s
+      .replace(/(?:^|\s)left\s*:\s*[^;]+;?/gi, '')
+      .replace(/(?:^|\s)bottom\s*:\s*[^;]+;?/gi, '')
+      .trim();
+  })();
 
   return new Promise(resolve=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // Панорама трека (GPU, округление до пикселя для iOS)
+      // === ПАНОРАМА ТРЕКА — КАК БЫЛО ===
       const curTrackX = Math.round(lerp(panX0, panX1, k));
       const curTrackY = Math.round(lerp(panY0, panY1, k));
       track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
 
-      // Баллистика в «мире»
+      // === БАЛЛИСТИКА — КАК БЫЛО ===
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // Переводим в экранные и применяем ОДНИМ transform
-      const xScreen = xWorld + curTrackX;
-      setChickenTransform(xScreen, y);
+      // экранные → CSS-left/bottom (с тем же полупиксельным округлением)
+      const xScreen   = xWorld + curTrackX;
+      const cssLeft   = Math.round(cssLeftFromScreenX(xScreen) * 2) / 2;
+      const bottomVal = Math.round(y * 2) / 2;
+
+      // === ЕДИНСТВЕННАЯ ОПТИМИЗАЦИЯ: одна запись вместо двух ===
+      chicken.style.cssText = (stylePrefix ? stylePrefix + '; ' : '') +
+                              `left:${cssLeft}px; bottom:${bottomVal}px;`;
 
       if (k < 1){
         requestAnimationFrame(frame);
       } else {
+        // финальные значения — КАК БЫЛО
         trackX = panX1; trackY = panY1;
         track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
-        setChickenTransform(x1World + trackX, y1);
+        const finalLeft   = cssLeftFromScreenX(x1World + trackX);
+        const finalBottom = y1;
+
+        // финальный коммит тоже одной операцией
+        chicken.style.cssText = (stylePrefix ? stylePrefix + '; ' : '') +
+                                `left:${finalLeft}px; bottom:${finalBottom}px;`;
 
         requestAnimationFrame(()=>{
+          chicken.style.transition = prevTransCh || '';
           chicken.style.willChange = prevWCCh || '';
-          chicken.style.transition  = prevTrCh || '';
-          track.style.willChange    = prevWCTr || '';
-          track.style.transition    = prevTrTr || '';
+          track.style.transition   = prevTransTr || '';
+          track.style.willChange   = prevWCTr || '';
           resolve();
         });
       }
@@ -612,6 +628,7 @@ async function jumpWithPanSync({
     requestAnimationFrame(frame);
   });
 }
+
 
 
 /* ===================== ПАРАБОЛА (резерв, не используется) ===================== */
@@ -743,20 +760,24 @@ function setInitialChicken(){
   let xScreen, bottomPx = BASE_BOTTOM;
 
   if (START_POS.mode === 'absolute'){
-    // START_POS.left — теперь трактуем как экранный X
-    xScreen = START_POS.left;
+    const leftPx = START_POS.left;
+    chicken.style.left = `${leftPx}px`;
     bottomPx = START_POS.bottom ?? BASE_BOTTOM;
   } else if (START_POS.mode === 'lane0' && lanes[0]){
     const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
-    xScreen = lane0CenterX;
+    xScreen  = lane0CenterX;
     const b = parseInt(lanes[0].style.bottom||'0',10);
     bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
+    setChickenLeftByScreenX(xScreen);
   } else {
     const spawnCenterX = centerXInTrack(spawnEl) + trackX;
-    xScreen = spawnCenterX;
+    xScreen  = spawnCenterX;
+    setChickenLeftByScreenX(xScreen);
   }
 
-  setChickenTransform(xScreen, bottomPx);
+  chicken.style.bottom = bottomPx + 'px';
+  chicken.style.transform = 'translateZ(0)';
+
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 
@@ -872,7 +893,6 @@ function respawnChicken({preserveY=false} = {}){
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 window.GameSpawn = { setSpawnChickenLeft, setSpawnChickenBottom, respawnChicken };
-
 </script>
 
 
