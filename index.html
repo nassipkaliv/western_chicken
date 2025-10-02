@@ -436,17 +436,21 @@ const sparkleLayers = sparklesEl ? [...sparklesEl.querySelectorAll('.sparkles-la
 const popup    = document.getElementById('popup');
 const popupWin = document.getElementById('popup__window_1');
 
-/* ===================== PERF HINTS ===================== */
-if (track){
+/* ===================== iOS perf: держим слои на GPU ===================== */
+if (track) {
   track.style.willChange = 'transform';
-  track.style.transform  = 'translate3d(0,0,0)';
+  track.style.transform = 'translate3d(0,0,0)';
   track.style.backfaceVisibility = 'hidden';
 }
-if (chicken){
+if (chicken) {
   chicken.style.willChange = 'left, bottom';
   chicken.style.backfaceVisibility = 'hidden';
   chicken.style.transform = 'translateZ(0)';
 }
+
+/* Нужны пассивные слушатели, чтобы Safari не блокировал main-thread */
+window.addEventListener('touchstart', () => {}, { passive: true });
+window.addEventListener('touchmove',  () => {}, { passive: true });
 
 /* ===================== CONFIG ===================== */
 const CONFIG = {
@@ -508,7 +512,7 @@ function landingRaiseFor(step){
   return arr[i] || 0;
 }
 
-/* ===================== REALISTIC ARC (ФИЗИКА) ===================== */
+/* ===================== REALISTIC ARC (БАЛЛИСТИКА) ===================== */
 const G_UNIFIED = 1850;   // px/s^2
 const ARC_HEIGHT_DESKTOP = 60;
 const ARC_HEIGHT_MOBILE  = 54;
@@ -522,7 +526,7 @@ const LIFT_TWEAK_PX_BY_STEP = [0, 0, 0, 0, 0, 0];
 let step   = 0;
 let trackX = 0, trackY = 0;
 let sparklesPlayed = false, popupShown = false;
-let isJumping = false;
+let isJumping = false; // защита от дабл-кликов
 
 let balanceValue = (() => {
   const txt = (balanceEl?.textContent || '20').replace(/[^\d.,]/g,'').replace(',','.');
@@ -550,6 +554,11 @@ function clampTrackY(y){
 function setChickenLeftByScreenX(xScreen){
   chicken.style.left = (xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET) + 'px';
 }
+function laneCenterLeftOnScreen(laneEl){
+  const laneCenterTrack = centerXInTrack(laneEl);
+  const xScreen         = laneCenterTrack + trackX;
+  return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
+}
 function cssLeftFromScreenX(xScreen){
   return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
 }
@@ -558,56 +567,7 @@ function screenXFromCssLeft(cssLeft){
 }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-/* ===================== START POSITION ===================== */
-function setInitialChicken(){
-  const prev = chicken.style.transition;
-  chicken.style.transition = 'none';
-
-  let xScreen, bottomPx = BASE_BOTTOM;
-
-  if (START_POS.mode === 'absolute'){
-    const leftPx = START_POS.left;
-    chicken.style.left = `${leftPx}px`;
-    bottomPx = START_POS.bottom ?? BASE_BOTTOM;
-  } else if (START_POS.mode === 'lane0' && lanes[0]){
-    const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
-    xScreen  = lane0CenterX;
-    const b = parseInt(lanes[0].style.bottom||'0',10);
-    bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
-    setChickenLeftByScreenX(xScreen);
-  } else {
-    const spawnCenterX = centerXInTrack(spawnEl) + trackX;
-    xScreen  = spawnCenterX;
-    setChickenLeftByScreenX(xScreen);
-  }
-
-  chicken.style.bottom = bottomPx + 'px';
-  chicken.style.transform = 'translateZ(0)';
-
-  requestAnimationFrame(()=> chicken.style.transition = prev || '');
-}
-
-/* ===================== TRACK ANIMATION (CSS transition, линейно) ===================== */
-function animateTrackCSS(panX0, panY0, panX1, panY1, durationMs){
-  // Ставим стартовое положение (без перехода)
-  const prevTr = track.style.transition;
-  track.style.transition = 'none';
-  track.style.transform  = `translate3d(${Math.round(panX0)}px, ${Math.round(panY0)}px, 0)`;
-  // Форсим reflow чтобы переход применился со следующего кадра
-  void track.offsetWidth;
-  // Включаем линейный переход и отправляем к финишу
-  track.style.transition = `transform ${Math.max(1,durationMs)}ms linear`;
-  track.style.transform  = `translate3d(${Math.round(panX1)}px, ${Math.round(panY1)}px, 0)`;
-
-  // Вернём переход после окончания — полезно если у тебя в CSS другой transition
-  const timer = setTimeout(()=>{
-    track.style.transition = prevTr || '';
-  }, Math.max(1,durationMs)+20);
-
-  return () => clearTimeout(timer); // canceller на всякий
-}
-
-/* ===================== JUMP + PAN (траектория как раньше) ===================== */
+/* ===================== JUMP + PAN (без изменения траектории) ===================== */
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
@@ -618,7 +578,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // время полёта из высоты апекса (как было)
+  // Время полёта из высоты апекса — ТА ЖЕ физика
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -630,28 +590,33 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
-  // Убираем transition у курицы на время полёта (чистый rAF)
   const prevTransCh = chicken.style.transition;
   const prevWCCh    = chicken.style.willChange;
+  const prevTransTr = track.style.transition;
+  const prevWCTr    = track.style.willChange;
+
   chicken.style.transition = 'none';
   chicken.style.willChange = 'left, bottom';
-
-  // Трек анимируем ОДНИМ CSS-transition (без per-frame записи)
-  const cancel = animateTrackCSS(panX0, panY0, panX1, panY1, ms);
+  track.style.transition   = 'none';
+  track.style.willChange   = 'transform';
 
   return new Promise(resolve=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // Синхронный curTrack* (только для расчёта курицы; сам трек едет CSS-переходом)
-      const curTrackX = lerp(panX0, panX1, k);
-      const curTrackY = lerp(panY0, panY1, k);
+      // Панорама камеры (GPU). ВАЖНО: округляем до пикселя для iOS.
+      const curTrackXf = lerp(panX0, panX1, k);
+      const curTrackYf = lerp(panY0, panY1, k);
+      const curTrackX  = Math.round(curTrackXf);
+      const curTrackY  = Math.round(curTrackYf);
+      track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
 
-      // Парабола — старая, «правильная» траектория
+      // Парабола (как раньше — чистая физика, никаких трансформов курицы)
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
+      // Экранные → CSS-left/bottom
       const xScreen = xWorld + curTrackX;
       const cssLeft = cssLeftFromScreenX(xScreen);
 
@@ -661,18 +626,17 @@ async function jumpWithPanSync({
       if (k < 1){
         requestAnimationFrame(frame);
       } else {
-        // Фиксируем финальные значения
-        cancel();
+        // Зафиксировать итог
         trackX = panX1; trackY = panY1;
-        // гарантированно выставляем финал (целые px чтобы не было пол-пикселя)
-        track.style.transform = `translate3d(${Math.round(trackX)}px, ${Math.round(trackY)}px, 0)`;
-
+        track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
         chicken.style.left   = cssLeftFromScreenX(x1World + trackX) + 'px';
         chicken.style.bottom = y1 + 'px';
 
         requestAnimationFrame(()=>{
           chicken.style.transition = prevTransCh || '';
           chicken.style.willChange = prevWCCh || '';
+          track.style.transition   = prevTransTr || '';
+          track.style.willChange   = prevWCTr || '';
           resolve();
         });
       }
@@ -681,7 +645,52 @@ async function jumpWithPanSync({
   });
 }
 
-/* ===================== ФЛИП МОНЕТЫ ===================== */
+/* ===================== ПАРАБОЛА (резерв, не используется) ===================== */
+function jumpBezier({ x0, y0, x1, y1, extraLift = 0 }){
+  const g = G_UNIFIED;
+  const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
+  const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
+  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
+  let T = Math.sqrt((8 * L) / g);
+  T = Math.max(T_MIN, Math.min(T_MAX, T));
+
+  const dx = x1 - x0, dy = y1 - y0;
+  const vx = dx / T,   vy = (dy + 0.5 * g * T * T) / T;
+
+  const ms = T * 1000, t0 = performance.now();
+
+  const prevTransition = chicken.style.transition;
+  const prevWillChange = chicken.style.willChange;
+  chicken.style.transition = 'none';
+  chicken.style.willChange = 'left, bottom';
+
+  return new Promise(resolve=>{
+    function frame(now){
+      let k = (now - t0) / ms; if (k > 1) k = 1;
+      const tt = k * T;
+
+      const x = x0 + vx * tt;
+      const y = y0 + (vy * tt) - (0.5 * g * tt * tt);
+
+      chicken.style.left   = (Math.round(x * 2) / 2) + 'px';
+      chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
+
+      if (k < 1){ requestAnimationFrame(frame); }
+      else{
+        chicken.style.left   = x1 + 'px';
+        chicken.style.bottom = y1 + 'px';
+        requestAnimationFrame(()=>{
+          chicken.style.transition = prevTransition || '';
+          chicken.style.willChange = prevWillChange || '';
+          resolve();
+        });
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+/* ===================== ФЛИП МОНЕТЫ (с предзагрузкой) ===================== */
 const COIN_IMG_SRC = 'pics/gold-coin.png';
 const coinPreload = new Image();
 let coinReady = false;
@@ -757,6 +766,35 @@ function openPopup(){
   }
 }
 
+/* ===================== START POSITION ===================== */
+function setInitialChicken(){
+  const prev = chicken.style.transition;
+  chicken.style.transition = 'none';
+
+  let xScreen, bottomPx = BASE_BOTTOM;
+
+  if (START_POS.mode === 'absolute'){
+    const leftPx = START_POS.left;
+    chicken.style.left = `${leftPx}px`;
+    bottomPx = START_POS.bottom ?? BASE_BOTTOM;
+  } else if (START_POS.mode === 'lane0' && lanes[0]){
+    const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
+    xScreen  = lane0CenterX;
+    const b = parseInt(lanes[0].style.bottom||'0',10);
+    bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
+    setChickenLeftByScreenX(xScreen);
+  } else {
+    const spawnCenterX = centerXInTrack(spawnEl) + trackX;
+    xScreen  = spawnCenterX;
+    setChickenLeftByScreenX(xScreen);
+  }
+
+  chicken.style.bottom = bottomPx + 'px';
+  chicken.style.transform = 'translateZ(0)';
+
+  requestAnimationFrame(()=> chicken.style.transition = prev || '');
+}
+
 /* ===================== INIT ===================== */
 addEventListener('load', () => {
   setInitialChicken();
@@ -781,7 +819,7 @@ addEventListener('resize', () => {
 /* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
   if (step >= lanes.length) return;
-  if (isJumping) return;   // защита от дабл-кликов
+  if (isJumping) return;
   isJumping = true;
 
   goBtn.classList.add('disabled');
@@ -817,7 +855,7 @@ goBtn.addEventListener('click', async () => {
   // Целевой x (мир)
   const x1World = laneCenterTrack;
 
-  // Доп. лифт (через data-arc-lift)
+  // Доп. лифт с data-arc-lift (если задан)
   const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
   const extraLift = laneLiftAttr;
 
@@ -838,7 +876,7 @@ goBtn.addEventListener('click', async () => {
   balanceValue = next;
   animateBalance(from, next, 450);
 
-  // финал — только на золотом яйце
+  // Celebrate/Sparkles/Popup — только на финальном шаге
   const isFinal = (step === lanes.length - 1) || targetLane.classList.contains('gold-egg');
   if (isFinal) {
     chicken.classList.remove('celebrate'); void chicken.offsetWidth;
@@ -871,6 +909,7 @@ function respawnChicken({preserveY=false} = {}){
 window.GameSpawn = { setSpawnChickenLeft, setSpawnChickenBottom, respawnChicken };
 
 </script>
+
 
   
 <div id="preloadjs-container" style="visibility: hidden; position: absolute; height: 10px; width: 10px; overflow: hidden; transform: translate(-10px, -10px);"></div>
