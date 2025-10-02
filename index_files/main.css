@@ -2044,6 +2044,27 @@ html.vn .button span {
 }
 
 
+.game-container { isolation: isolate; }
+
+.track{
+  will-change: transform;
+  transform: translate3d(0,0,0);
+  backface-visibility: hidden;
+  contain: paint;           
+}
+
+.overlay{ contain: layout paint; }
+
+.chicken{
+  will-change: left, bottom;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+#go-btn { touch-action: manipulation; }
+
+
+
 @-webkit-keyframes popup-img-scaling {
 	0% {
 		-webkit-transform: translateX(-50%) scale(0.5);
