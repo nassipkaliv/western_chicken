@@ -1530,6 +1530,7 @@ html.vn .button span {
 .claim-btn:hover {
 	-webkit-filter: drop-shadow(0 0 2rem #AD0205);
 	filter: drop-shadow(0 0 2rem #AD0205);
+	background: linear-gradient(180deg, #bc3a3c 0%, #dd3538 49.52%, #971e20 100%);
 }
 
 .claim-btn::after {
