@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-country="pl" class="webp webp-alpha webp-animation webp-lossless curr_pl ru hide" data-lang="ru"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="/assets/-pre--chiken-5/index.html">--><base href=".">
+<html lang="en" data-country="en" class="webp webp-alpha webp-animation webp-lossless curr_pl en hide" data-lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="/assets/-pre--chiken-5/index.html">--><base href=".">
     
     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover" name="viewport">
     <meta content="ie=edge" http-equiv="X-UA-Compatible">
@@ -13,7 +13,7 @@
   </head>
 
   <body onload="init();">
-    <div class="preloader hide">
+    <div class="preloader">
       <img alt="preloader" src="./index_files/preloader.svg">
     </div>
     <div class="blur__wrap">
@@ -370,6 +370,52 @@
   <script src="./index_files/particles.min.js"></script>
   <script src="./index_files/index.js"></script>
 
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+  const preloader = document.querySelector(".preloader");
+  const body = document.body;
+
+  const images = Array.from(document.images);
+  let loadedCount = 0;
+
+  if (images.length === 0) {
+    finishLoading();
+  } else {
+    images.forEach(img => {
+      if (img.complete) {
+        increment();
+      } else {
+        img.addEventListener("load", increment);
+        img.addEventListener("error", increment);
+      }
+    });
+  }
+
+  function increment() {
+    loadedCount++;
+    if (loadedCount >= images.length) {
+      finishLoading();
+    }
+  }
+
+  function finishLoading() {
+    if (preloader) {
+      preloader.classList.add("hide");
+    }
+
+    // Плавное появление сайта после ухода прелоадера
+    setTimeout(() => {
+      body.style.visibility = "visible";
+      body.style.transition = "opacity 0.8s ease";
+      body.style.opacity = "1";
+      body.style.overflow = ""; // вернуть скролл
+    }, 300); // чуть позже, чем уходит прелоадер
+  }
+});
+
+</script>
+
 <script>
 /* ===================== DOM ===================== */
 const goBtn     = document.getElementById('go-btn');
@@ -516,6 +562,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
+  // время полёта из высоты апекса
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -532,6 +579,7 @@ async function jumpWithPanSync({
   const prevTransTr = track.style.transition;
   const prevWCTr    = track.style.willChange;
 
+  // Без CSS-переходов, только rAF-кадры
   chicken.style.transition = 'none';
   chicken.style.willChange = 'left, bottom';
   track.style.transition   = 'none';
@@ -542,42 +590,45 @@ async function jumpWithPanSync({
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
+      // Панорама камеры (GPU)
       const curTrackX = lerp(panX0, panX1, k);
       const curTrackY = lerp(panY0, panY1, k);
       track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
 
+      // Парабола в мировых координатах
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
+      // Перевод в экранные и в CSS-left
       const xScreen = xWorld + curTrackX;
       const cssLeft = cssLeftFromScreenX(xScreen);
 
+      // Записываем напрямую (как раньше) — это и есть «та самая» траектория
       chicken.style.left   = (Math.round(cssLeft * 2) / 2) + 'px';
       chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
 
       if (k < 1){
         requestAnimationFrame(frame);
       } else {
+        // Финальная фиксация состояний
         trackX = panX1; trackY = panY1;
         track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
         chicken.style.left   = cssLeftFromScreenX(x1World + trackX) + 'px';
         chicken.style.bottom = y1 + 'px';
 
         requestAnimationFrame(()=>{
-          requestAnimationFrame(()=>{
-            chicken.style.transition = prevTransCh || '';
-            chicken.style.willChange = prevWCCh || '';
-            track.style.transition   = prevTransTr || '';
-            track.style.willChange   = prevWCTr || '';
-            resolve();
-          });
+          chicken.style.transition = prevTransCh || '';
+          chicken.style.willChange = prevWCCh || '';
+          track.style.transition   = prevTransTr || '';
+          track.style.willChange   = prevWCTr || '';
+          resolve();
         });
-
       }
     }
     requestAnimationFrame(frame);
   });
 }
+
 
 /* ===================== ФЛИП МОНЕТЫ ===================== */
 const COIN_IMG_SRC = 'pics/gold-coin.png';
@@ -658,7 +709,7 @@ function openPopup(){
 /* ===================== START POSITION ===================== */
 function setInitialChicken(){
   const prev = chicken.style.transition;
-  chicken.style.transition = 'none'; // 🚫 убираем анимацию на старте
+  chicken.style.transition = 'none';
 
   let xScreen, bottomPx = BASE_BOTTOM;
 
@@ -679,13 +730,11 @@ function setInitialChicken(){
   }
 
   chicken.style.bottom = bottomPx + 'px';
+  // важное: чтобы не конфликтовало с будущими translate во время прыжка
+  chicken.style.transform = 'translateZ(0)';
 
-  // 🔹 вернём transition после старта
-  requestAnimationFrame(()=>{
-    chicken.style.transition = prev || 'left .45s ease, bottom .45s ease';
-  });
+  requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
-
 
 /* ===================== INIT ===================== */
 addEventListener('load', () => {
