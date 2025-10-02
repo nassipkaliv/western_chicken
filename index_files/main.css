@@ -2037,6 +2037,18 @@ html.is-loading body {
   contain: layout paint;           
 }
 
+.overlay{
+  contain: layout paint; 
+}
+
+.chicken{
+  transform: translateZ(0);       /* свой слой на GPU */
+  will-change: transform;         /* во время прыжка меняем только transform */
+  backface-visibility: hidden;
+  contain: layout paint;          /* ограничить область paint */
+}
+
+
 
 /* Флип монеток */
 .lane img{

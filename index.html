@@ -546,7 +546,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // === ВРЕМЯ ПОЛЁТА — КАК БЫЛО ===
+  // === ВРЕМЯ ПОЛЁТА — КАК БЫЛО (ничего не меняем) ===
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -563,21 +563,33 @@ async function jumpWithPanSync({
   const prevTransTr = track.style.transition;
   const prevWCTr    = track.style.willChange;
 
-  // как раньше
+  // Как и раньше: двигаем left/bottom и трек по transform
   chicken.style.transition = 'none';
   chicken.style.willChange = 'left, bottom';
   track.style.transition   = 'none';
   track.style.willChange   = 'transform';
 
-  // кэш префикса, чтобы не собирать cssText с нуля
+  // На мобилках субпиксели часто дают лишнюю дорогую фильтрацию.
+  // Десктоп — оставляем 0.5px, мобайл — до целого (визуально разницы почти нет, а лаги уходят).
+  const roundPos = isMobile
+    ? (v) => Math.round(v)                 // мобильные устройства
+    : (v) => Math.round(v * 2) / 2;        // как у тебя было (0.5px)
+
+  // Кэшируем текущие inline-стили курицы без left/bottom,
+  // чтобы в кадре писать ОДНОЙ операцией cssText (меньше layout-циклов)
   const stylePrefix = (() => {
-    // сохраним остальные инлайновые стили курицы (если были)
     const s = chicken.getAttribute('style') || '';
-    // удалим существующие left/bottom, будем подставлять заново
     return s
       .replace(/(?:^|\s)left\s*:\s*[^;]+;?/gi, '')
       .replace(/(?:^|\s)bottom\s*:\s*[^;]+;?/gi, '')
       .trim();
+  })();
+
+  // на время прыжка можно притормозить блёстки (меньше конкурирующих анимаций)
+  const resumeSparkles = (() => {
+    if (!sparkleLayers.length) return () => {};
+    sparkleLayers.forEach(l => l.style.animationPlayState = 'paused');
+    return () => sparkleLayers.forEach(l => l.style.animationPlayState = 'running');
   })();
 
   return new Promise(resolve=>{
@@ -585,38 +597,39 @@ async function jumpWithPanSync({
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // === ПАНОРАМА ТРЕКА — КАК БЫЛО ===
+      // === Панорама трека — как было (округление до целого пикселя) ===
       const curTrackX = Math.round(lerp(panX0, panX1, k));
       const curTrackY = Math.round(lerp(panY0, panY1, k));
       track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
 
-      // === БАЛЛИСТИКА — КАК БЫЛО ===
+      // === Баллистика — как было ===
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // экранные → CSS-left/bottom (с тем же полупиксельным округлением)
+      // Экранные координаты → те же cssLeft/bottom
       const xScreen   = xWorld + curTrackX;
-      const cssLeft   = Math.round(cssLeftFromScreenX(xScreen) * 2) / 2;
-      const bottomVal = Math.round(y * 2) / 2;
+      const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
+      const bottomVal = roundPos(y);
 
-      // === ЕДИНСТВЕННАЯ ОПТИМИЗАЦИЯ: одна запись вместо двух ===
+      // === Один коммит стилей на кадр (без чтения layout в середине) ===
       chicken.style.cssText = (stylePrefix ? stylePrefix + '; ' : '') +
                               `left:${cssLeft}px; bottom:${bottomVal}px;`;
 
       if (k < 1){
         requestAnimationFrame(frame);
       } else {
-        // финальные значения — КАК БЫЛО
+        // === Финал — как было, фиксируем итог ===
         trackX = panX1; trackY = panY1;
         track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
+
         const finalLeft   = cssLeftFromScreenX(x1World + trackX);
         const finalBottom = y1;
-
-        // финальный коммит тоже одной операцией
         chicken.style.cssText = (stylePrefix ? stylePrefix + '; ' : '') +
                                 `left:${finalLeft}px; bottom:${finalBottom}px;`;
 
+        // вернуть флаги и анимации
         requestAnimationFrame(()=>{
+          resumeSparkles();
           chicken.style.transition = prevTransCh || '';
           chicken.style.willChange = prevWCCh || '';
           track.style.transition   = prevTransTr || '';
@@ -628,6 +641,7 @@ async function jumpWithPanSync({
     requestAnimationFrame(frame);
   });
 }
+
 
 
 
