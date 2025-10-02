@@ -370,8 +370,8 @@
   <script src="./index_files/particles.min.js"></script>
   <script src="./index_files/index.js"></script>
 
-  <script>
-    /* ===================== DOM ===================== */
+    <script>
+/* ===================== DOM ===================== */
 const goBtn     = document.getElementById('go-btn');
 const cashBtn   = document.getElementById('cash-btn');
 const balanceEl = document.getElementById('balance');
@@ -464,6 +464,7 @@ const LIFT_TWEAK_PX_BY_STEP = [0, 0, 0, 0, 0, 0];
 let step   = 0;
 let trackX = 0, trackY = 0;
 let sparklesPlayed = false, popupShown = false;
+let isJumping = false; // 🔹 Блокировка повторных кликов
 
 let balanceValue = (() => {
   const txt = (balanceEl?.textContent || '20').replace(/[^\d.,]/g,'').replace(',','.');
@@ -504,7 +505,7 @@ function screenXFromCssLeft(cssLeft){
 }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-/* ===================== JUMP + PAN (синхронно, без фризов) ===================== */
+/* ===================== JUMP + PAN ===================== */
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
@@ -575,52 +576,7 @@ async function jumpWithPanSync({
   });
 }
 
-/* ===================== ПАРАБОЛА (оставлено на всякий случай) ===================== */
-function jumpBezier({ x0, y0, x1, y1, extraLift = 0 }){
-  const g = G_UNIFIED;
-  const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
-  const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
-  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
-  let T = Math.sqrt((8 * L) / g);
-  T = Math.max(T_MIN, Math.min(T_MAX, T));
-
-  const dx = x1 - x0, dy = y1 - y0;
-  const vx = dx / T,   vy = (dy + 0.5 * g * T * T) / T;
-
-  const ms = T * 1000, t0 = performance.now();
-
-  const prevTransition = chicken.style.transition;
-  const prevWillChange = chicken.style.willChange;
-  chicken.style.transition = 'none';
-  chicken.style.willChange = 'left, bottom';
-
-  return new Promise(resolve=>{
-    function frame(now){
-      let k = (now - t0) / ms; if (k > 1) k = 1;
-      const tt = k * T;
-
-      const x = x0 + vx * tt;
-      const y = y0 + (vy * tt) - (0.5 * g * tt * tt);
-
-      chicken.style.left   = (Math.round(x * 2) / 2) + 'px';
-      chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
-
-      if (k < 1){ requestAnimationFrame(frame); }
-      else{
-        chicken.style.left   = x1 + 'px';
-        chicken.style.bottom = y1 + 'px';
-        requestAnimationFrame(()=>{
-          chicken.style.transition = prevTransition || '';
-          chicken.style.willChange = prevWillChange || '';
-          resolve();
-        });
-      }
-    }
-    requestAnimationFrame(frame);
-  });
-}
-
-/* ===================== ФЛИП МОНЕТЫ (с предзагрузкой) ===================== */
+/* ===================== ФЛИП МОНЕТЫ ===================== */
 const COIN_IMG_SRC = 'pics/gold-coin.png';
 const coinPreload = new Image();
 let coinReady = false;
@@ -643,7 +599,6 @@ function flipToCoin(laneEl){
   laneEl.classList.add('flipped');
   img.classList.add('flip-out');
 
-  // Если монета уже в кеше — меняем сразу, иначе ждём onload, чтобы не было глитча
   if (coinReady || coinPreload.complete) {
     setTimeout(doSwap, 200);
   } else {
@@ -700,7 +655,6 @@ function openPopup(){
 /* ===================== START POSITION ===================== */
 function setInitialChicken(){
   const prev = chicken.style.transition; chicken.style.transition='none';
-
   let xScreen, bottomPx = BASE_BOTTOM;
 
   if (START_POS.mode === 'absolute'){
@@ -728,11 +682,9 @@ addEventListener('load', () => {
   setInitialChicken();
   balanceEl.textContent = balanceValue.toFixed(2) + ' EUR';
 });
-
 addEventListener('resize', () => {
   const newCFG = pickConfig();
   isMobile = matchMedia('(max-width:540px)').matches;
-
   if (newCFG !== CFG) {
     CFG = newCFG;
     MAX_TRACK_WIDTH         = CFG.MAX_TRACK_WIDTH;
@@ -749,6 +701,8 @@ addEventListener('resize', () => {
 /* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
   if (step >= lanes.length) return;
+  if (isJumping) return;   // 🔹 блокируем быстрые клики
+  isJumping = true;
 
   goBtn.classList.add('disabled');
   setTimeout(()=> goBtn.classList.remove('disabled'), 350);
@@ -783,18 +737,17 @@ goBtn.addEventListener('click', async () => {
   // Целевой x (мир)
   const x1World = laneCenterTrack;
 
-  // Доп. лифт
+
   const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
   const extraLift = laneLiftAttr;
 
-  // Полёт + панорама
   await jumpWithPanSync({
     x0World, y0, x1World, y1,
     panX0, panX1, panY0, panY1,
     extraLift
   });
 
-  // Флип и экономика
+
   flipToCoin(targetLane);
 
   const mult = MULTS[step] || 1;
@@ -804,7 +757,7 @@ goBtn.addEventListener('click', async () => {
   balanceValue = next;
   animateBalance(from, next, 450);
 
-  // Celebrate/Sparkles/Popup — только на финальном шаге
+  
   const isFinal = (step === lanes.length - 1) || targetLane.classList.contains('gold-egg');
   if (isFinal) {
     chicken.classList.remove('celebrate'); void chicken.offsetWidth;
@@ -814,9 +767,9 @@ goBtn.addEventListener('click', async () => {
   }
 
   step++;
+  isJumping = false; 
 });
 
-/* ===================== API ===================== */
 function setSpawnChickenLeft(px){
   START_POS.mode  = 'absolute';
   START_POS.left  = Math.round(px);
@@ -834,8 +787,8 @@ function respawnChicken({preserveY=false} = {}){
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 window.GameSpawn = { setSpawnChickenLeft, setSpawnChickenBottom, respawnChicken };
+</script>
 
-  </script>
 
   
 <div id="preloadjs-container" style="visibility: hidden; position: absolute; height: 10px; width: 10px; overflow: hidden; transform: translate(-10px, -10px);"></div>

@@ -384,7 +384,7 @@ html .ro {
   -webkit-transform: translateX(-50%);
 	-ms-transform: translateX(-50%);
 	transform: translateX(-50%);
-  bottom: 5%;
+  bottom: 1.5%;
   z-index: 120;
 }
 
@@ -1943,12 +1943,12 @@ html.vn .button span {
   to   { background-position-y: 900px; } /* > высоты контейнера => ощущение падения */
 }
 
-/* Окно игры — одна декларация, фиксированная высота */
+
 .game-container{
   position: relative;
   width: 100%;
   max-width: 900px;
-  height: 450px;             /* фиксированная высота — важно */
+  height: 450px;             
   overflow: hidden;
   background: #0f1324;
   isolation: isolate;
