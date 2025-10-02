@@ -5,6 +5,7 @@
     <meta content="ie=edge" http-equiv="X-UA-Compatible">
     <meta name="format-detection" content="telephone=no">
     <title>Spiele</title>
+    <script>document.documentElement.classList.add('is-loading');</script>
     <link rel="icon" type="image/png" href="./pics/favicon-96x96.png" sizes="96x96">
     <link rel="icon" type="image/svg+xml" href="./pics/favicon.svg">
     <link rel="shortcut icon" href="./pics/favicon.ico">
@@ -367,50 +368,21 @@
   <script src="./index_files/index.js"></script>
 
 
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-  const preloader = document.querySelector(".preloader");
-  const body = document.body;
+  <script>
+  // Покажем прелоадер сразу (он видим по CSS), скроем после полной загрузки
+  window.addEventListener('load', () => {
+    const preloader = document.querySelector('.preloader');
+    document.documentElement.classList.remove('is-loading');
+    // вернём тело
+    document.body.style.visibility = '';
+    document.body.style.opacity = '';
+    document.body.style.overflow = '';
 
-  const images = Array.from(document.images);
-  let loadedCount = 0;
-
-  if (images.length === 0) {
-    finishLoading();
-  } else {
-    images.forEach(img => {
-      if (img.complete) {
-        increment();
-      } else {
-        img.addEventListener("load", increment);
-        img.addEventListener("error", increment);
-      }
-    });
-  }
-
-  function increment() {
-    loadedCount++;
-    if (loadedCount >= images.length) {
-      finishLoading();
-    }
-  }
-
-  function finishLoading() {
-    if (preloader) {
-      preloader.classList.add("hide");
-    }
-
-    // Плавное появление сайта после ухода прелоадера
-    setTimeout(() => {
-      body.style.visibility = "visible";
-      body.style.transition = "opacity 0.8s ease";
-      body.style.opacity = "1";
-      body.style.overflow = ""; // вернуть скролл
-    }, 300); // чуть позже, чем уходит прелоадер
-  }
-});
-
+    // плавно скрыть прелоадер
+    if (preloader) preloader.classList.add('hide');
+  });
 </script>
+
 
 <script>
   /* ===================== DOM ===================== */
@@ -550,6 +522,14 @@ function clampTrackY(y){
 function setChickenLeftByScreenX(xScreen){
   chicken.style.left = (xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET) + 'px';
 }
+
+function setChickenTransform(xScreenPx, yPx) {
+  const tx = Math.round( (xScreenPx - CHICKEN_HALF_W + CHICKEN_X_OFFSET) * 2 ) / 2;
+  const ty = Math.round( yPx * 2 ) / 2;
+  chicken.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
+}
+
+
 function laneCenterLeftOnScreen(laneEl){
   const laneCenterTrack = centerXInTrack(laneEl);
   const xScreen         = laneCenterTrack + trackX;
@@ -574,7 +554,6 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // Время полёта из высоты апекса — ТА ЖЕ физика
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -586,53 +565,46 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
-  const prevTransCh = chicken.style.transition;
-  const prevWCCh    = chicken.style.willChange;
-  const prevTransTr = track.style.transition;
-  const prevWCTr    = track.style.willChange;
+  const prevWCCh = chicken.style.willChange;
+  const prevWCTr = track.style.willChange;
+  const prevTrCh = chicken.style.transition;
+  const prevTrTr = track.style.transition;
 
-  chicken.style.transition = 'none';
-  chicken.style.willChange = 'left, bottom';
-  track.style.transition   = 'none';
-  track.style.willChange   = 'transform';
+  chicken.style.willChange = 'transform';
+  chicken.style.transition  = 'none';
+  track.style.willChange    = 'transform';
+  track.style.transition    = 'none';
 
   return new Promise(resolve=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // Панорама камеры (GPU). ВАЖНО: округляем до пикселя для iOS.
-      const curTrackXf = lerp(panX0, panX1, k);
-      const curTrackYf = lerp(panY0, panY1, k);
-      const curTrackX  = Math.round(curTrackXf);
-      const curTrackY  = Math.round(curTrackYf);
+      // Панорама трека (GPU, округление до пикселя для iOS)
+      const curTrackX = Math.round(lerp(panX0, panX1, k));
+      const curTrackY = Math.round(lerp(panY0, panY1, k));
       track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
 
-      // Парабола (как раньше — чистая физика, никаких трансформов курицы)
+      // Баллистика в «мире»
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // Экранные → CSS-left/bottom
+      // Переводим в экранные и применяем ОДНИМ transform
       const xScreen = xWorld + curTrackX;
-      const cssLeft = cssLeftFromScreenX(xScreen);
-
-      chicken.style.left   = (Math.round(cssLeft * 2) / 2) + 'px';
-      chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
+      setChickenTransform(xScreen, y);
 
       if (k < 1){
         requestAnimationFrame(frame);
       } else {
-        // Зафиксировать итог
         trackX = panX1; trackY = panY1;
         track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
-        chicken.style.left   = cssLeftFromScreenX(x1World + trackX) + 'px';
-        chicken.style.bottom = y1 + 'px';
+        setChickenTransform(x1World + trackX, y1);
 
         requestAnimationFrame(()=>{
-          chicken.style.transition = prevTransCh || '';
           chicken.style.willChange = prevWCCh || '';
-          track.style.transition   = prevTransTr || '';
-          track.style.willChange   = prevWCTr || '';
+          chicken.style.transition  = prevTrCh || '';
+          track.style.willChange    = prevWCTr || '';
+          track.style.transition    = prevTrTr || '';
           resolve();
         });
       }
@@ -640,6 +612,7 @@ async function jumpWithPanSync({
     requestAnimationFrame(frame);
   });
 }
+
 
 /* ===================== ПАРАБОЛА (резерв, не используется) ===================== */
 function jumpBezier({ x0, y0, x1, y1, extraLift = 0 }){
@@ -770,24 +743,20 @@ function setInitialChicken(){
   let xScreen, bottomPx = BASE_BOTTOM;
 
   if (START_POS.mode === 'absolute'){
-    const leftPx = START_POS.left;
-    chicken.style.left = `${leftPx}px`;
+    // START_POS.left — теперь трактуем как экранный X
+    xScreen = START_POS.left;
     bottomPx = START_POS.bottom ?? BASE_BOTTOM;
   } else if (START_POS.mode === 'lane0' && lanes[0]){
     const lane0CenterX = centerXInTrack(lanes[0]) + trackX;
-    xScreen  = lane0CenterX;
+    xScreen = lane0CenterX;
     const b = parseInt(lanes[0].style.bottom||'0',10);
     bottomPx = Number.isFinite(b)&&b>0 ? b : (CHICKEN_BOTTOM_PX[0] ?? BASE_BOTTOM);
-    setChickenLeftByScreenX(xScreen);
   } else {
     const spawnCenterX = centerXInTrack(spawnEl) + trackX;
-    xScreen  = spawnCenterX;
-    setChickenLeftByScreenX(xScreen);
+    xScreen = spawnCenterX;
   }
 
-  chicken.style.bottom = bottomPx + 'px';
-  chicken.style.transform = 'translateZ(0)';
-
+  setChickenTransform(xScreen, bottomPx);
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 

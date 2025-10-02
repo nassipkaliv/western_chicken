@@ -1314,6 +1314,13 @@ html.vn .button span {
 	-webkit-text-stroke: 1.2px #1144A3;
 }
 
+html.is-loading body {
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+}
+
+
 .preloader {
   position: fixed;
   top: 0;
@@ -2012,15 +2019,18 @@ html.vn .button span {
 
 /* Курица — должна уметь анимировать bottom */
 .overlay{ position:absolute; inset:0; z-index:3; pointer-events:none; }
+
 .chicken {
   position: absolute;
-  left: 0; bottom: 0; /* якорь внизу */
+  left: 0; 
+  bottom: 0;
   width: 100px;
   height: auto;
-  transform: translate3d(var(--dx, 0), var(--dy, 0), 0);
-  will-change: transform;
+  transform: translate3d(0,0,0);
+  will-change: transform;        
   backface-visibility: hidden;
 }
+
 
 
 /* Флип монеток */
