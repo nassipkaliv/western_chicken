@@ -1339,6 +1339,13 @@ html.vn .button span {
   opacity: 0;
   visibility: hidden;
 }
+
+html.is-loading body {
+  visibility: hidden;
+  opacity: 0;
+  overflow: hidden;
+}
+
 .blur__wrap {
 	position: absolute;
 	right: 0;
