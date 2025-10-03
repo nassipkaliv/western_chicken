@@ -572,20 +572,20 @@ async function jumpWithPanSync({
   const prevWCCh = chicken.style.willChange;
   const prevTfCh = chicken.style.transform;
 
-  // во время полёта — только transform
+  // в полёте — только transform
   track.style.transition   = 'none';
   track.style.willChange   = 'transform';
   chicken.style.transition = 'none';
   chicken.style.willChange = 'transform';
 
-  // исходная базовая точка курицы (фиксируем как «опору»)
+  // «база» для смещений
   const baseLeft   = parseFloat(chicken.style.left   || '0') || 0;
   const baseBottom = parseFloat(chicken.style.bottom || '0') || 0;
 
-  // округление: мобилам — целые, десктоп — 0.5px (как у тебя)
+  // округление: мобилам целые, десктопам 0.5px
   const roundPos = isMobile ? (v)=>Math.round(v) : (v)=>Math.round(v*2)/2;
 
-  // на время прыжка приостановим блёстки (меньше конкурирующих анимаций)
+  // на время прыжка можно приостановить блёстки
   const resumeSparkles = (() => {
     if (!sparkleLayers.length) return () => {};
     sparkleLayers.forEach(l => l.style.animationPlayState = 'paused');
@@ -597,7 +597,7 @@ async function jumpWithPanSync({
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // панорамирование трека — как было
+      // панорама — как было
       const curTrackX = Math.round(lerp(panX0, panX1, k));
       const curTrackY = Math.round(lerp(panY0, panY1, k));
       track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
@@ -606,7 +606,7 @@ async function jumpWithPanSync({
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // считаем «как всегда» cssLeft/bottom, но РИСУЕМ лишь transform
+      // конвертируем в те же «cssLeft/bottom», но рендерим через transform
       const xScreen   = xWorld + curTrackX;
       const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
       const bottomVal = roundPos(y);
@@ -615,13 +615,13 @@ async function jumpWithPanSync({
       const dxT = cssLeft   - baseLeft;
       const dyT = bottomVal - baseBottom;
 
-      // КРИТИЧЕСКОЕ: один дешёвый compositing
-      chicken.style.transform = `translate3d(${dxT}px, ${dyT}px, 0)`;
+      // ВАЖНО: translateY положительный идёт ВНИЗ → инвертируем знак!
+      chicken.style.transform = `translate3d(${dxT}px, ${-dyT}px, 0)`;
 
       if (k < 1) {
         requestAnimationFrame(frame);
       } else {
-        // финальные значения — как было: один раз записали, transform обнулили
+        // финал — зафиксировали реальные left/bottom и вернули transform
         trackX = panX1; trackY = panY1;
         track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
 
@@ -631,7 +631,6 @@ async function jumpWithPanSync({
         chicken.style.bottom   = `${finalBottom}px`;
         chicken.style.transform = prevTfCh || '';
 
-        // вернули флаги/анимации
         requestAnimationFrame(() => {
           resumeSparkles();
           track.style.transition   = prevTrTr || '';
@@ -642,12 +641,9 @@ async function jumpWithPanSync({
         });
       }
     }
-
-    // запуск кадра и пауза блёсток сразу
     requestAnimationFrame(frame);
   });
 }
-
 
 /* ===================== ПАРАБОЛА (резерв, не используется) ===================== */
 function jumpBezier({ x0, y0, x1, y1, extraLift = 0 }){
