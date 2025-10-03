@@ -146,14 +146,13 @@ function showSecondPopup() {
     np: { countWB: '200000 INR' },
     vn: { countWB: '51000000 VND' },
     th: { countWB: '68000 THB' },
-    // cz: { countWB: '40000 CZK' },
 
     se: { countWB: '20000 SEK' },
     ro: { countWB: '10000 RON' },
     ch: { countWB: '2000 CHF' },
     li: { countWB: '2000 CHF' },
     bg: { countWB: '4000 BGN' },
-    default: { countWB: '2000 EUR' },
+    default: { countWB: '1000 EUR' },
   }
 
   const inputValue = data[country]

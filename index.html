@@ -150,12 +150,12 @@
 
     <div class="lanes">
       <!-- left — центр кружка (из-за translateX(-50%)) -->
-      <div class="lane" style="left:240px; bottom: 310px;"><img src="pics/coef1.png"  alt="1.50x"></div>
-      <div class="lane" style="left:395px; bottom: 410px;"><img src="pics/coef2.png"  alt="1.85x"></div>
-      <div class="lane" style="left:555px; bottom: 510px;"><img src="pics/coef3.png"  alt="1.95x"></div>
-      <div class="lane" style="left:713px; bottom: 610px;"><img src="pics/coef4.png"  alt="2.00x"></div>
-      <div class="lane" style="left:870px;  bottom: 715px;"><img src="pics/coef5.png"  alt="2.10x"></div>
-      <div class="lane gold-egg" style="left:1035px;  bottom: 780px;"><img src="pics/gold-egg.png" alt="2.20x"></div>
+      <div class="lane" style="left:235px; bottom: 310px;"><img src="pics/coef1.png"  alt="1.50x"></div>
+      <div class="lane" style="left:390px; bottom: 410px;"><img src="pics/coef2.png"  alt="1.85x"></div>
+      <div class="lane" style="left:553px; bottom: 510px;"><img src="pics/coef3.png"  alt="1.95x"></div>
+      <div class="lane" style="left:714px; bottom: 610px;"><img src="pics/coef4.png"  alt="2.00x"></div>
+      <div class="lane" style="left:865px;  bottom: 715px;"><img src="pics/coef5.png"  alt="2.10x"></div>
+      <div class="lane gold-egg" style="left:1045px;  bottom: 780px;"><img src="pics/gold-egg.png" alt="2.20x"></div>
     </div>
   </div>
 
@@ -420,6 +420,13 @@ if (chicken) {
 window.addEventListener('touchstart', () => {}, { passive: true });
 window.addEventListener('touchmove',  () => {}, { passive: true });
 
+(() => {
+  const coin = new Image();
+  coin.src = 'pics/gold-coin.png';
+  coin.decoding = 'async';
+  try { coin.decode && coin.decode(); } catch(e) {}
+})();
+
 /* ===================== CONFIG ===================== */
 const CONFIG = {
   desktop: {
@@ -450,7 +457,7 @@ let isMobile = matchMedia('(max-width:540px)').matches;
 /* мобильные bottom'ы у лейнов */
 function adjustLanesForMobile(){
   if (!matchMedia('(max-width:540px)').matches) return;
-  const bottoms = [280, 380, 490, 595, 690, 780];
+  const bottoms = [290, 395, 500, 610, 715, 780];
   document.querySelectorAll('.lane').forEach((lane,i)=>{
     if (bottoms[i]!=null) lane.style.bottom = bottoms[i] + 'px';
   });
@@ -540,13 +547,13 @@ async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
   extraLift = 0
-}){
+}) {
   const g = G_UNIFIED;
   const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // === ВРЕМЯ ПОЛЁТА — КАК БЫЛО (ничего не меняем) ===
+  // время полёта — как было
   let T = Math.sqrt((8 * L) / g);
   T = Math.max(T_MIN, Math.min(T_MAX, T));
 
@@ -558,91 +565,88 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
-  const prevTransCh = chicken.style.transition;
-  const prevWCCh    = chicken.style.willChange;
-  const prevTransTr = track.style.transition;
-  const prevWCTr    = track.style.willChange;
+  // запомним старые стили
+  const prevTrTr = track.style.transition;
+  const prevWCTr = track.style.willChange;
+  const prevTrCh = chicken.style.transition;
+  const prevWCCh = chicken.style.willChange;
+  const prevTfCh = chicken.style.transform;
 
-  // Как и раньше: двигаем left/bottom и трек по transform
-  chicken.style.transition = 'none';
-  chicken.style.willChange = 'left, bottom';
+  // во время полёта — только transform
   track.style.transition   = 'none';
   track.style.willChange   = 'transform';
+  chicken.style.transition = 'none';
+  chicken.style.willChange = 'transform';
 
-  // На мобилках субпиксели часто дают лишнюю дорогую фильтрацию.
-  // Десктоп — оставляем 0.5px, мобайл — до целого (визуально разницы почти нет, а лаги уходят).
-  const roundPos = isMobile
-    ? (v) => Math.round(v)                 // мобильные устройства
-    : (v) => Math.round(v * 2) / 2;        // как у тебя было (0.5px)
+  // исходная базовая точка курицы (фиксируем как «опору»)
+  const baseLeft   = parseFloat(chicken.style.left   || '0') || 0;
+  const baseBottom = parseFloat(chicken.style.bottom || '0') || 0;
 
-  // Кэшируем текущие inline-стили курицы без left/bottom,
-  // чтобы в кадре писать ОДНОЙ операцией cssText (меньше layout-циклов)
-  const stylePrefix = (() => {
-    const s = chicken.getAttribute('style') || '';
-    return s
-      .replace(/(?:^|\s)left\s*:\s*[^;]+;?/gi, '')
-      .replace(/(?:^|\s)bottom\s*:\s*[^;]+;?/gi, '')
-      .trim();
-  })();
+  // округление: мобилам — целые, десктоп — 0.5px (как у тебя)
+  const roundPos = isMobile ? (v)=>Math.round(v) : (v)=>Math.round(v*2)/2;
 
-  // на время прыжка можно притормозить блёстки (меньше конкурирующих анимаций)
+  // на время прыжка приостановим блёстки (меньше конкурирующих анимаций)
   const resumeSparkles = (() => {
     if (!sparkleLayers.length) return () => {};
     sparkleLayers.forEach(l => l.style.animationPlayState = 'paused');
     return () => sparkleLayers.forEach(l => l.style.animationPlayState = 'running');
   })();
 
-  return new Promise(resolve=>{
+  return new Promise(resolve => {
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // === Панорама трека — как было (округление до целого пикселя) ===
+      // панорамирование трека — как было
       const curTrackX = Math.round(lerp(panX0, panX1, k));
       const curTrackY = Math.round(lerp(panY0, panY1, k));
       track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
 
-      // === Баллистика — как было ===
+      // баллистика — как было
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // Экранные координаты → те же cssLeft/bottom
+      // считаем «как всегда» cssLeft/bottom, но РИСУЕМ лишь transform
       const xScreen   = xWorld + curTrackX;
       const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
       const bottomVal = roundPos(y);
 
-      // === Один коммит стилей на кадр (без чтения layout в середине) ===
-      chicken.style.cssText = (stylePrefix ? stylePrefix + '; ' : '') +
-                              `left:${cssLeft}px; bottom:${bottomVal}px;`;
+      // смещения относительно базы
+      const dxT = cssLeft   - baseLeft;
+      const dyT = bottomVal - baseBottom;
 
-      if (k < 1){
+      // КРИТИЧЕСКОЕ: один дешёвый compositing
+      chicken.style.transform = `translate3d(${dxT}px, ${dyT}px, 0)`;
+
+      if (k < 1) {
         requestAnimationFrame(frame);
       } else {
-        // === Финал — как было, фиксируем итог ===
+        // финальные значения — как было: один раз записали, transform обнулили
         trackX = panX1; trackY = panY1;
         track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
 
         const finalLeft   = cssLeftFromScreenX(x1World + trackX);
         const finalBottom = y1;
-        chicken.style.cssText = (stylePrefix ? stylePrefix + '; ' : '') +
-                                `left:${finalLeft}px; bottom:${finalBottom}px;`;
+        chicken.style.left     = `${finalLeft}px`;
+        chicken.style.bottom   = `${finalBottom}px`;
+        chicken.style.transform = prevTfCh || '';
 
-        // вернуть флаги и анимации
-        requestAnimationFrame(()=>{
+        // вернули флаги/анимации
+        requestAnimationFrame(() => {
           resumeSparkles();
-          chicken.style.transition = prevTransCh || '';
-          chicken.style.willChange = prevWCCh || '';
-          track.style.transition   = prevTransTr || '';
+          track.style.transition   = prevTrTr || '';
           track.style.willChange   = prevWCTr || '';
+          chicken.style.transition = prevTrCh || '';
+          chicken.style.willChange = prevWCCh || '';
           resolve();
         });
       }
     }
+
+    // запуск кадра и пауза блёсток сразу
     requestAnimationFrame(frame);
   });
 }
-
-
 
 
 /* ===================== ПАРАБОЛА (резерв, не используется) ===================== */
