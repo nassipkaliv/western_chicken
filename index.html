@@ -553,92 +553,93 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // время полёта — как было
+  // время полёта — КАК БЫЛО
   let T = Math.sqrt((8 * L) / g);
-  T = Math.max(T_MIN, Math.min(T_MAX, T));
+  if (T < T_MIN) T = T_MIN;
+  else if (T > T_MAX) T = T_MAX;
 
   const dx = x1World - x0World;
   const dy = y1 - y0;
-  const vx = dx / T;
-  const vy = (dy + 0.5 * g * T * T) / T;
+  const invT = 1 / T;
+  const vx = dx * invT;
+  const vy = (dy + 0.5 * g * T * T) * invT;
 
   const ms = T * 1000;
   const t0 = performance.now();
 
-  // запомним старые стили
+  // кэшируем и отключаем transitions
   const prevTrTr = track.style.transition;
   const prevWCTr = track.style.willChange;
   const prevTrCh = chicken.style.transition;
   const prevWCCh = chicken.style.willChange;
   const prevTfCh = chicken.style.transform;
 
-  // в полёте — только transform
   track.style.transition   = 'none';
   track.style.willChange   = 'transform';
   chicken.style.transition = 'none';
   chicken.style.willChange = 'transform';
 
-  // «база» для смещений
-  const baseLeft   = parseFloat(chicken.style.left   || '0') || 0;
-  const baseBottom = parseFloat(chicken.style.bottom || '0') || 0;
+  // базовые координаты курицы (относительно которых двигаем transform)
+  const baseLeft   = (parseFloat(chicken.style.left)   || 0);
+  const baseBottom = (parseFloat(chicken.style.bottom) || 0);
 
-  // округление: мобилам целые, десктопам 0.5px
-  const roundPos = isMobile ? (v)=>Math.round(v) : (v)=>Math.round(v*2)/2;
+  // округление: мобила — целое, десктоп — 0.5px
+  const roundPos = isMobile ? (v)=> (v+0.5|0) : (v)=> Math.round(v*2)/2;
 
-  // на время прыжка можно приостановить блёстки
-  const resumeSparkles = (() => {
-    if (!sparkleLayers.length) return () => {};
-    sparkleLayers.forEach(l => l.style.animationPlayState = 'paused');
-    return () => sparkleLayers.forEach(l => l.style.animationPlayState = 'running');
-  })();
+  // ПАУЗИМ всё, что может мешать рендеру в этот короткий промежуток
+  const pausedAnims = [];
+  if (sparklesEl) {
+    sparkleLayers.forEach(l => {
+      pausedAnims.push([l, l.style.animationPlayState]);
+      l.style.animationPlayState = 'paused';
+    });
+  }
 
   return new Promise(resolve => {
+    function restore(){
+      // вернуть блёстки/стили
+      if (sparklesEl) {
+        pausedAnims.forEach(([el, st]) => el.style.animationPlayState = st || 'running');
+      }
+      track.style.transition   = prevTrTr || '';
+      track.style.willChange   = prevWCTr || '';
+      chicken.style.transition = prevTrCh || '';
+      chicken.style.willChange = prevWCCh || '';
+    }
+
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // панорама — как было
-      const curTrackX = Math.round(lerp(panX0, panX1, k));
-      const curTrackY = Math.round(lerp(panY0, panY1, k));
-      track.style.transform = `translate3d(${curTrackX}px, ${curTrackY}px, 0)`;
+      // панорама (один transform)
+      const curTrackX = (panX0 + (panX1 - panX0) * k) | 0;                 // до целого
+      const curTrackY = (panY0 + (panY1 - panY0) * k) | 0;
+      track.style.transform = `translate3d(${curTrackX}px,${curTrackY}px,0)`;
 
-      // баллистика — как было
+      // баллистика — КАК БЫЛО
       const xWorld = x0World + vx * tt;
       const y      = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // конвертируем в те же «cssLeft/bottom», но рендерим через transform
+      // считаем «cssLeft/bottom», но рисуем через transform
       const xScreen   = xWorld + curTrackX;
       const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
       const bottomVal = roundPos(y);
 
-      // смещения относительно базы
+      // смещения от базы (translateY положит вниз — инвертируем знак)
       const dxT = cssLeft   - baseLeft;
       const dyT = bottomVal - baseBottom;
-
-      // ВАЖНО: translateY положительный идёт ВНИЗ → инвертируем знак!
-      chicken.style.transform = `translate3d(${dxT}px, ${-dyT}px, 0)`;
+      chicken.style.transform = `translate3d(${dxT}px,${-dyT}px,0)`;
 
       if (k < 1) {
         requestAnimationFrame(frame);
       } else {
-        // финал — зафиксировали реальные left/bottom и вернули transform
+        // финал: фиксируем реальные значения ОДИН РАЗ
         trackX = panX1; trackY = panY1;
-        track.style.transform = `translate3d(${trackX}px, ${trackY}px, 0)`;
-
-        const finalLeft   = cssLeftFromScreenX(x1World + trackX);
-        const finalBottom = y1;
-        chicken.style.left     = `${finalLeft}px`;
-        chicken.style.bottom   = `${finalBottom}px`;
+        track.style.transform = `translate3d(${trackX}px,${trackY}px,0)`;
+        chicken.style.left   = `${cssLeftFromScreenX(x1World + trackX)}px`;
+        chicken.style.bottom = `${y1}px`;
         chicken.style.transform = prevTfCh || '';
-
-        requestAnimationFrame(() => {
-          resumeSparkles();
-          track.style.transition   = prevTrTr || '';
-          track.style.willChange   = prevWCTr || '';
-          chicken.style.transition = prevTrCh || '';
-          chicken.style.willChange = prevWCCh || '';
-          resolve();
-        });
+        requestAnimationFrame(()=>{ restore(); resolve(); });
       }
     }
     requestAnimationFrame(frame);
@@ -723,15 +724,23 @@ function flipToCoin(laneEl){
 }
 
 /* ===================== БАЛАНС ===================== */
-function animateBalance(from, to, ms=450){
-  const t0 = performance.now();
-  const tick = (t) => {
-    const k = Math.min((t - t0)/ms, 1);
+function animateBalance(from, to, ms = 450){
+  const start = performance.now();
+  let last = start;
+  const stepHzMs = 1000/30; 
+
+  function frame(t){
+    if (t - last < stepHzMs) { requestAnimationFrame(frame); return; }
+    last = t;
+
+    const k = Math.min((t - start)/ms, 1);
     balanceEl.textContent = (from + (to - from)*k).toFixed(2) + ' EUR';
-    if (k < 1) requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
+    if (k < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
+
+
 function preciseMul(a,b){
   const aStr=String(a), bStr=String(b);
   const aDec=(aStr.split('.')[1]||'').length, bDec=(bStr.split('.')[1]||'').length;

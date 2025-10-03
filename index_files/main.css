@@ -2072,6 +2072,22 @@ html.is-loading body {
 }
 
 
+.track, .overlay, .chicken, .lanes, .lane img {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
+}
+
+.chicken { will-change: transform; }
+
+.track { will-change: transform; }
+
+@media (max-width: 540px) {
+  .game-container, .track, .chicken { image-rendering: auto; } /* избегаем дорогих ресемплингов */
+}
+
+
 
 @-webkit-keyframes popup-img-scaling {
 	0% {
