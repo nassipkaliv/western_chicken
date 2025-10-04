@@ -385,7 +385,6 @@
 
 
 <script>
-  /* ===================== DOM ===================== */
 const goBtn     = document.getElementById('go-btn');
 const cashBtn   = document.getElementById('cash-btn');
 const balanceEl = document.getElementById('balance');
@@ -396,13 +395,11 @@ const chicken   = document.querySelector('.chicken');
 const lanes     = [...document.querySelectorAll('.lane')];
 const spawnEl   = document.querySelector('.spawn');
 
-/* Sparkles / Popup */
 const sparklesEl    = document.getElementById('sparkles');
 const sparkleLayers = sparklesEl ? [...sparklesEl.querySelectorAll('.sparkles-layer')] : [];
 const popup         = document.getElementById('popup');
 const popupWin      = document.getElementById('popup__window_1');
 
-/* ===================== Base perf setup ===================== */
 if (track){
   track.style.willChange = 'transform';
   track.style.transform  = 'translate3d(0,0,0)';
@@ -416,7 +413,6 @@ if (chicken){
 window.addEventListener('touchstart', () => {}, { passive: true });
 window.addEventListener('touchmove',  () => {}, { passive: true });
 
-/* ===================== CONFIG ===================== */
 const CONFIG = {
   desktop: {
     MAX_TRACK_WIDTH: 1260,
@@ -443,7 +439,6 @@ function pickConfig(){ return matchMedia('(max-width:540px)').matches ? CONFIG.m
 let CFG = pickConfig();
 let isMobile = matchMedia('(max-width:540px)').matches;
 
-/* ===================== SETTINGS (из CFG) ===================== */
 let MAX_TRACK_WIDTH         = CFG.MAX_TRACK_WIDTH;
 let CHICKEN_HALF_W          = CFG.CHICKEN_HALF_W;
 let BASE_BOTTOM             = CFG.BASE_BOTTOM;
@@ -453,10 +448,8 @@ let TRACK_FALL_PX           = CFG.TRACK_FALL_PX.slice();
 let CHICKEN_BOTTOM_PX       = CFG.CHICKEN_BOTTOM_PX.slice();
 let START_POS               = { ...CFG.START_POS };
 
-/* ===================== ECON ===================== */
 const MULTS = [1.50, 1.85, 1.95, 2.00, 2.10, 2.20];
 
-/* ===================== LANDING CONTROL ===================== */
 const LANDING_RAISE_DESKTOP = [30, 28, 28, 40, 43, 40];
 const LANDING_RAISE_MOBILE  = [30, 28, 29, 40, 41, 40];
 function landingRaiseFor(step){
@@ -465,15 +458,13 @@ function landingRaiseFor(step){
   return arr[i] || 0;
 }
 
-/* ===================== TRAJECTORY ===================== */
-const G_UNIFIED = 1850;   // px/s^2
+const G_UNIFIED = 1850;
 const ARC_HEIGHT_DESKTOP = 60;
 const ARC_HEIGHT_MOBILE  = 54;
 const T_MIN = 0.48;
 const T_MAX = 0.62;
 const LIFT_TWEAK_PX_BY_STEP = [0, 0, 0, 0, 0, 0];
 
-/* ===================== STATE ===================== */
 let step   = 0;
 let trackX = 0, trackY = 0;
 let sparklesPlayed = false, popupShown = false;
@@ -484,7 +475,6 @@ let balanceValue = (() => {
   const n = parseFloat(txt); return Number.isFinite(n) ? n : 20;
 })();
 
-/* ===================== HELPERS ===================== */
 function centerXInTrack(el){
   if (el.classList.contains('lane') || el.classList.contains('spawn')) {
     return parseInt(el.style.left || '0', 10) || 0;
@@ -513,7 +503,6 @@ function screenXFromCssLeft(cssLeft){
 }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-/* ===================== PERF: balance anim (cancel-safe) ===================== */
 let cancelBalanceAnim = null;
 function animateBalance(from, to, ms = 450){
   if (typeof cancelBalanceAnim === 'function') cancelBalanceAnim();
@@ -522,7 +511,6 @@ function animateBalance(from, to, ms = 450){
   const start = performance.now();
   let last = start;
   const stepHzMs = 1000/30;
-
   function frame(t){
     if (!running) return;
     if (t - last < stepHzMs) { rafId = requestAnimationFrame(frame); return; }
@@ -534,7 +522,6 @@ function animateBalance(from, to, ms = 450){
   rafId = requestAnimationFrame(frame);
 }
 
-/* ===================== SPARKLES / POPUP ===================== */
 function playSparklesOnce(){
   if (!sparklesEl || sparklesPlayed) return;
   sparklesPlayed = true;
@@ -563,7 +550,6 @@ function openPopup(){
 function pauseSparkles(){ sparkleLayers.forEach(l => l.style.animationPlayState = 'paused'); }
 function resumeSparkles(){ sparkleLayers.forEach(l => l.style.animationPlayState = 'running'); }
 
-/* ===================== FLIP COIN (clean GPU layer) ===================== */
 const COIN_IMG_SRC = 'pics/gold-coin.png';
 (function preloadCoin(){
   const img = new Image();
@@ -575,15 +561,11 @@ const COIN_IMG_SRC = 'pics/gold-coin.png';
 function flipToCoin(laneEl){
   if (laneEl.classList.contains('gold-egg')) return;
   if (laneEl.classList.contains('flipped'))  return;
-
   const img = laneEl.querySelector('img');
   laneEl.classList.add('flipped');
-
   img.style.willChange = 'transform';
   img.style.backfaceVisibility = 'hidden';
-
   img.classList.add('flip-out');
-
   const swap = () => {
     img.src = COIN_IMG_SRC;
     img.alt = 'Coin';
@@ -600,7 +582,6 @@ function flipToCoin(laneEl){
   setTimeout(swap, 200);
 }
 
-/* ===================== BALANCE HELPERS ===================== */
 function preciseMul(a,b){
   const aStr=String(a), bStr=String(b);
   const aDec=(aStr.split('.')[1]||'').length, bDec=(bStr.split('.')[1]||'').length;
@@ -608,13 +589,10 @@ function preciseMul(a,b){
   return (fA*fB)/Math.pow(10,aDec+bDec);
 }
 
-/* ===================== START POSITION ===================== */
 function setInitialChicken(){
   const prev = chicken.style.transition;
   chicken.style.transition = 'none';
-
   let xScreen, bottomPx = BASE_BOTTOM;
-
   if (START_POS.mode === 'absolute'){
     const leftPx = START_POS.left;
     chicken.style.left = `${leftPx}px`;
@@ -630,13 +608,11 @@ function setInitialChicken(){
     xScreen  = spawnCenterX;
     setChickenLeftByScreenX(xScreen);
   }
-
   chicken.style.bottom = bottomPx + 'px';
   chicken.style.transform = 'translateZ(0)';
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 
-// при load
 const toPreload = [
   'pics/background.png','pics/chicken.png',
   'pics/coef1.png','pics/coef2.png','pics/coef3.png',
@@ -646,17 +622,14 @@ const pre = s=>{ const i=new Image(); i.decoding='async'; i.src=s; try{i.decode&
 ('requestIdleCallback' in window)
   ? requestIdleCallback(()=>toPreload.forEach(pre), {timeout:1200})
   : setTimeout(()=>toPreload.forEach(pre), 300);
-  
-/* ===================== INIT ===================== */
+
 addEventListener('load', () => {
-  // mobile lane bottoms
   if (isMobile){
     const bottoms = [290, 395, 500, 610, 715, 780];
     document.querySelectorAll('.lane').forEach((lane,i)=>{
       if (bottoms[i]!=null) lane.style.bottom = bottoms[i] + 'px';
     });
   }
-  // light image pre-decode on idle
   const imgs = [
     'pics/background.png','pics/chicken.png','pics/coef1.png','pics/coef2.png',
     'pics/coef3.png','pics/coef4.png','pics/coef5.png','pics/gold-egg.png', COIN_IMG_SRC
@@ -664,7 +637,6 @@ addEventListener('load', () => {
   const preload = src => { const im=new Image(); im.decoding='async'; im.src=src; try{im.decode&&im.decode();}catch(e){} };
   if ('requestIdleCallback' in window) requestIdleCallback(()=> imgs.forEach(preload), {timeout:1200});
   else setTimeout(()=> imgs.forEach(preload), 300);
-
   setInitialChicken();
   balanceEl.textContent = balanceValue.toFixed(2) + ' EUR';
 });
@@ -684,9 +656,6 @@ addEventListener('resize', () => {
   }
 });
 
-/* ===================== JUMP + PAN (trajectory preserved) ===================== */
-
-
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
@@ -696,69 +665,45 @@ async function jumpWithPanSync({
   const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
-
-  // Время полёта — как было
   let T = Math.sqrt((8 * L) / g);
   if (T < T_MIN) T = T_MIN; else if (T > T_MAX) T = T_MAX;
-
   const dx = x1World - x0World;
   const dy = y1 - y0;
   const invT = 1 / T;
   const vx = dx * invT;
   const vy = (dy + 0.5 * g * T * T) * invT;
-
   const ms = T * 1000;
   const t0 = performance.now();
-
-  // Сохраняем и готовим стили: ВСЁ делаем transform'ами в rAF
   const prevTrTr = track.style.transition;
   const prevTrTf = track.style.transform;
   const prevChTr = chicken.style.transition;
   const prevChWC = chicken.style.willChange;
   const prevChTf = chicken.style.transform;
-
   track.style.transition   = 'none';
   chicken.style.transition = 'none';
   chicken.style.willChange = 'transform';
-
-  // База (истинные координаты), от которой даём translate3d
   const baseLeft   = parseFloat(chicken.style.left)   || 0;
   const baseBottom = parseFloat(chicken.style.bottom) || 0;
-
-  // Округление: мобила — целые, десктоп — 0.5px
   const roundPos = isMobile ? (v)=> Math.round(v) : (v)=> Math.round(v*2)/2;
-
-  // Поставим на паузу шумные анимации (меньше конкуренции за кадр)
   const paused = [];
   if (sparkleLayers.length){
     sparkleLayers.forEach(l => { paused.push([l, l.style.animationPlayState]); l.style.animationPlayState='paused'; });
   }
-
-  // ЕДИНЫЙ rAF-цикл: считаем и трек, и курицу синхронно (нет гонок/рывков)
   await new Promise(resolveRAF=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
-
-      // Панорама — сами линейно интерполируем (без CSS transitions)
       const curTrackX = panX0 + (panX1 - panX0) * k;
       const curTrackY = panY0 + (panY1 - panY0) * k;
       track.style.transform = `translate3d(${(curTrackX|0)}px,${(curTrackY|0)}px,0)`;
-
-      // Баллистика — как было
       const xWorld  = x0World + vx * tt;
       const y       = y0 + vy * tt - 0.5 * g * tt * tt;
-
-      // Экранные координаты → привычные cssLeft/bottom
       const xScreen   = xWorld + curTrackX;
       const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
       const bottomVal = roundPos(y);
-
-      // Смещения относительно базы (translateY(+) — вниз, bottom(+) — вверх)
       const dxT = cssLeft   - baseLeft;
       const dyT = bottomVal - baseBottom;
       chicken.style.transform = `translate3d(${dxT}px,${-dyT}px,0)`;
-
       if (k < 1) {
         requestAnimationFrame(frame);
       } else {
@@ -767,44 +712,28 @@ async function jumpWithPanSync({
     }
     requestAnimationFrame(frame);
   });
-
-  // Финал: фиксируем итог ОДНИМ коммитом, без переходов
   trackX = panX1; trackY = panY1;
   track.style.transform = `translate3d(${trackX}px,${trackY}px,0)`;
-
   chicken.style.left     = `${cssLeftFromScreenX(x1World + trackX)}px`;
   chicken.style.bottom   = `${y1}px`;
   chicken.style.transform = prevChTf || '';
-
-  // Возвращаем стили/анимации
   track.style.transition   = prevTrTr || '';
-  // transform у трека оставляем финальным (prevTrTf можно вернуть, если нужно)
   chicken.style.transition = prevChTr || '';
   chicken.style.willChange = prevChWC || '';
   paused.forEach(([el, st]) => el.style.animationPlayState = st || 'running');
 }
 
-
-
-/* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
   if (step >= lanes.length) return;
   if (isJumping) return;
   isJumping = true;
-
-  // UI throttling
   goBtn.classList.add('disabled');
   setTimeout(()=> goBtn.classList.remove('disabled'), 350);
   if (step === 0 && cashBtn) cashBtn.classList.remove('disabled');
-
   const targetLane = lanes[step];
-
-  // Пауза всего лишнего на время прыжка
   if (typeof cancelBalanceAnim === 'function') cancelBalanceAnim();
   pauseSparkles();
   chicken.classList.remove('celebrate');
-
-  // Панорама цели
   const laneCenterTrack   = centerXInTrack(targetLane);
   const anchorCenterTrack = centerXInTrack(spawnEl);
   const panX1 = clampTrackX(-(laneCenterTrack - anchorCenterTrack));
@@ -812,12 +741,8 @@ goBtn.addEventListener('click', async () => {
   const panY1 = clampTrackY(wantedFall);
   const panX0 = trackX;
   const panY0 = trackY;
-
-  // Цели Y
   const baseY = (CHICKEN_BOTTOM_PX[Math.min(step, CHICKEN_BOTTOM_PX.length-1)] ?? BASE_BOTTOM);
   const y1 = baseY + landingRaiseFor(step);
-
-  // Текущая позиция курицы (мир)
   const hasX = chicken.style.left && chicken.style.left.endsWith('px');
   const hasY = chicken.style.bottom && chicken.style.bottom.endsWith('px');
   const cssLeft0 = hasX ? parseFloat(chicken.style.left)
@@ -826,34 +751,22 @@ goBtn.addEventListener('click', async () => {
   const x0World  = x0Screen - trackX;
   const y0 = hasY ? parseFloat(chicken.style.bottom)
                   : (START_POS.bottom ?? BASE_BOTTOM);
-
   const x1World = laneCenterTrack;
-
   const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
   const extraLift = laneLiftAttr;
-
-  // Прыжок + панорама
   await jumpWithPanSync({
     x0World, y0, x1World, y1,
     panX0, panX1, panY0, panY1,
     extraLift
   });
-
-  // Возобновляем sparkles (если не финал — они просто будут вырублены стилями)
   resumeSparkles();
-
-  // Монета
   flipToCoin(targetLane);
-
-  // Экономика
   const mult = MULTS[step] || 1;
   const from = balanceValue;
   let next   = preciseMul(balanceValue, mult);
   if (step === MULTS.length - 1) next = 1000;
   balanceValue = next;
   animateBalance(from, next, 450);
-
-  // Финальная анимация
   const isFinal = (step === lanes.length - 1) || targetLane.classList.contains('gold-egg');
   if (isFinal) {
     chicken.classList.remove('celebrate'); void chicken.offsetWidth;
@@ -861,12 +774,10 @@ goBtn.addEventListener('click', async () => {
     playSparklesOnce();
     setTimeout(openPopup, SPARKLES_TO_POPUP_DELAY);
   }
-
   step++;
   isJumping = false;
 });
 
-/* ===================== PUBLIC API ===================== */
 function setSpawnChickenLeft(px){
   START_POS.mode  = 'absolute';
   START_POS.left  = Math.round(px);
@@ -884,7 +795,6 @@ function respawnChicken({preserveY=false} = {}){
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 window.GameSpawn = { setSpawnChickenLeft, setSpawnChickenBottom, respawnChicken };
-
 </script>
 
   
