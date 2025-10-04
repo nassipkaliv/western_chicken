@@ -636,6 +636,17 @@ function setInitialChicken(){
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 
+// при load
+const toPreload = [
+  'pics/background.png','pics/chicken.png',
+  'pics/coef1.png','pics/coef2.png','pics/coef3.png',
+  'pics/coef4.png','pics/coef5.png','pics/gold-egg.png','pics/gold-coin.png'
+];
+const pre = s=>{ const i=new Image(); i.decoding='async'; i.src=s; try{i.decode&&i.decode();}catch{} };
+('requestIdleCallback' in window)
+  ? requestIdleCallback(()=>toPreload.forEach(pre), {timeout:1200})
+  : setTimeout(()=>toPreload.forEach(pre), 300);
+  
 /* ===================== INIT ===================== */
 addEventListener('load', () => {
   // mobile lane bottoms
@@ -674,16 +685,34 @@ addEventListener('resize', () => {
 });
 
 /* ===================== JUMP + PAN (trajectory preserved) ===================== */
+// helper: ждём завершения CSS-перехода transform у элемента (с фолбеком)
+function waitTransformTransition(el, durMs){
+  return new Promise(resolve=>{
+    let done = false;
+    const off = () => { el.removeEventListener('transitionend', onEnd); };
+    const onEnd = (e) => {
+      if (e.target !== el) return;
+      if (e.propertyName && e.propertyName !== 'transform') return;
+      if (done) return;
+      done = true; off(); resolve();
+    };
+    el.addEventListener('transitionend', onEnd, { once: true });
+    // фолбек на случай, если Safari «съел» событие
+    setTimeout(()=>{ if (!done){ done = true; off(); resolve(); } }, Math.max(0, durMs + 60));
+  });
+}
+
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
   panX0, panX1, panY0, panY1,
   extraLift = 0
-}){
+}) {
   const g = G_UNIFIED;
   const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
+  // ВРЕМЯ ПОЛЁТА — как было
   let T = Math.sqrt((8 * L) / g);
   if (T < T_MIN) T = T_MIN; else if (T > T_MAX) T = T_MAX;
 
@@ -696,65 +725,92 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
+  // кеш стилей
   const prevTrTr = track.style.transition;
-  const prevWCTr = track.style.willChange;
-  const prevTrCh = chicken.style.transition;
-  const prevWCCh = chicken.style.willChange;
-  const prevTfCh = chicken.style.transform;
+  const prevTrTf = track.style.transform;
+  const prevChTr = chicken.style.transition;
+  const prevChWC = chicken.style.willChange;
+  const prevChTf = chicken.style.transform;
 
-  track.style.transition   = 'none';
-  track.style.willChange   = 'transform';
+  // базовые координаты курицы (истинные left/bottom)
+  const baseLeft   = parseFloat(chicken.style.left)   || 0;
+  const baseBottom = parseFloat(chicken.style.bottom) || 0;
+
+  // округление: мобила — целые, десктоп — 0.5px
+  const roundPos = isMobile ? (v)=> (v+0.5|0) : (v)=> Math.round(v*2)/2;
+
+  // 1) Панорама — через CSS transition (едет на композиторе)
+  track.style.transition = `transform ${ms}ms linear`;
+  track.style.transform  = `translate3d(${panX0}px,${panY0}px,0)`;
+  requestAnimationFrame(() => {
+    track.style.transform = `translate3d(${panX1}px,${panY1}px,0)`;
+  });
+
+  // 2) Курица — только transform в rAF
   chicken.style.transition = 'none';
   chicken.style.willChange = 'transform';
 
-  const baseLeft   = (parseFloat(chicken.style.left)   || 0);
-  const baseBottom = (parseFloat(chicken.style.bottom) || 0);
+  // Поставим на паузу «шумные» анимации
+  const paused = [];
+  if (sparkleLayers.length){
+    sparkleLayers.forEach(l => { paused.push([l, l.style.animationPlayState]); l.style.animationPlayState='paused'; });
+  }
 
-  const roundPos = isMobile ? (v)=> (v+0.5|0) : (v)=> Math.round(v*2)/2;
-
-  return new Promise(resolve => {
-    function restore(){
-      track.style.transition   = prevTrTr || '';
-      track.style.willChange   = prevWCTr || '';
-      chicken.style.transition = prevTrCh || '';
-      chicken.style.willChange = prevWCCh || '';
-    }
-
+  // rAF-цикл: считаем точную траекторию и рисуем translate3d
+  await new Promise(resolveRAF=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      const curTrackX = (panX0 + (panX1 - panX0) * k) | 0;
-      const curTrackY = (panY0 + (panY1 - panY0) * k) | 0;
-      track.style.transform = `translate3d(${curTrackX}px,${curTrackY}px,0)`;
+      // виртуальная панорама для X-экранной координаты курицы
+      const curTrackX = panX0 + (panX1 - panX0) * k;
 
-      const xWorld = x0World + vx * tt;
-      const y      = y0 + vy * tt - 0.5 * g * tt * tt;
+      // баллистика — как было
+      const xWorld  = x0World + vx * tt;
+      const y       = y0 + vy * tt - 0.5 * g * tt * tt;
 
+      // перевод в привычные cssLeft/bottom
       const xScreen   = xWorld + curTrackX;
       const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
       const bottomVal = roundPos(y);
 
+      // оффсеты относительно базовых left/bottom
       const dxT = cssLeft   - baseLeft;
       const dyT = bottomVal - baseBottom;
 
-      // ВАЖНО: bottom растёт вверх, а translateY(+) двигает вниз → ставим минус
+      // translateY(+) двигает вниз, а bottom(+) — вверх → инвертируем знак
       chicken.style.transform = `translate3d(${dxT}px,${-dyT}px,0)`;
 
       if (k < 1) {
         requestAnimationFrame(frame);
       } else {
-        trackX = panX1; trackY = panY1;
-        track.style.transform = `translate3d(${trackX}px,${trackY}px,0)`;
-        chicken.style.left   = `${cssLeftFromScreenX(x1World + trackX)}px`;
-        chicken.style.bottom = `${y1}px`;
-        chicken.style.transform = prevTfCh || '';
-        requestAnimationFrame(()=>{ restore(); resolve(); });
+        resolveRAF();
       }
     }
     requestAnimationFrame(frame);
   });
+
+  // ВАЖНО: НЕ фиксируем курицу прямо сейчас.
+  // Сначала ждём, пока трек ДОЕДЕТ CSS-переходом до panX1/panY1 (transitionend).
+  await waitTransformTransition(track, ms);
+
+  // Теперь трек точно на месте → можно «зацементировать» итог
+  trackX = panX1; trackY = panY1;
+  chicken.style.left   = `${cssLeftFromScreenX(x1World + trackX)}px`;
+  chicken.style.bottom = `${y1}px`;
+  chicken.style.transform = prevChTf || '';
+
+  // вернуть стили/анимации
+  track.style.transition   = prevTrTr || '';
+  // оставим transform как есть (уже на panX1/panY1); если надо — верни prevTrTf
+  // track.style.transform = prevTrTf || `translate3d(${trackX}px,${trackY}px,0)`;
+
+  chicken.style.transition = prevChTr || '';
+  chicken.style.willChange = prevChWC || '';
+  paused.forEach(([el, st]) => el.style.animationPlayState = st || 'running');
 }
+
+
 
 /* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
