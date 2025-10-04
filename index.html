@@ -396,36 +396,25 @@ const chicken   = document.querySelector('.chicken');
 const lanes     = [...document.querySelectorAll('.lane')];
 const spawnEl   = document.querySelector('.spawn');
 
-/* Sparkles */
+/* Sparkles / Popup */
 const sparklesEl    = document.getElementById('sparkles');
 const sparkleLayers = sparklesEl ? [...sparklesEl.querySelectorAll('.sparkles-layer')] : [];
+const popup         = document.getElementById('popup');
+const popupWin      = document.getElementById('popup__window_1');
 
-/* Popup */
-const popup    = document.getElementById('popup');
-const popupWin = document.getElementById('popup__window_1');
-
-/* ===================== iOS perf: держим слои на GPU ===================== */
-if (track) {
+/* ===================== Base perf setup ===================== */
+if (track){
   track.style.willChange = 'transform';
-  track.style.transform = 'translate3d(0,0,0)';
+  track.style.transform  = 'translate3d(0,0,0)';
   track.style.backfaceVisibility = 'hidden';
 }
-if (chicken) {
+if (chicken){
   chicken.style.willChange = 'left, bottom';
+  chicken.style.transform  = 'translateZ(0)';
   chicken.style.backfaceVisibility = 'hidden';
-  chicken.style.transform = 'translateZ(0)';
 }
-
-/* Нужны пассивные слушатели, чтобы Safari не блокировал main-thread */
 window.addEventListener('touchstart', () => {}, { passive: true });
 window.addEventListener('touchmove',  () => {}, { passive: true });
-
-(() => {
-  const coin = new Image();
-  coin.src = 'pics/gold-coin.png';
-  coin.decoding = 'async';
-  try { coin.decode && coin.decode(); } catch(e) {}
-})();
 
 /* ===================== CONFIG ===================== */
 const CONFIG = {
@@ -454,17 +443,6 @@ function pickConfig(){ return matchMedia('(max-width:540px)').matches ? CONFIG.m
 let CFG = pickConfig();
 let isMobile = matchMedia('(max-width:540px)').matches;
 
-/* мобильные bottom'ы у лейнов */
-function adjustLanesForMobile(){
-  if (!matchMedia('(max-width:540px)').matches) return;
-  const bottoms = [290, 395, 500, 610, 715, 780];
-  document.querySelectorAll('.lane').forEach((lane,i)=>{
-    if (bottoms[i]!=null) lane.style.bottom = bottoms[i] + 'px';
-  });
-}
-addEventListener('load', adjustLanesForMobile);
-addEventListener('resize', adjustLanesForMobile);
-
 /* ===================== SETTINGS (из CFG) ===================== */
 let MAX_TRACK_WIDTH         = CFG.MAX_TRACK_WIDTH;
 let CHICKEN_HALF_W          = CFG.CHICKEN_HALF_W;
@@ -487,21 +465,19 @@ function landingRaiseFor(step){
   return arr[i] || 0;
 }
 
-/* ===================== REALISTIC ARC (БАЛЛИСТИКА) ===================== */
+/* ===================== TRAJECTORY ===================== */
 const G_UNIFIED = 1850;   // px/s^2
 const ARC_HEIGHT_DESKTOP = 60;
 const ARC_HEIGHT_MOBILE  = 54;
-
 const T_MIN = 0.48;
 const T_MAX = 0.62;
-
 const LIFT_TWEAK_PX_BY_STEP = [0, 0, 0, 0, 0, 0];
 
 /* ===================== STATE ===================== */
 let step   = 0;
 let trackX = 0, trackY = 0;
 let sparklesPlayed = false, popupShown = false;
-let isJumping = false; // защита от дабл-кликов
+let isJumping = false;
 
 let balanceValue = (() => {
   const txt = (balanceEl?.textContent || '20').replace(/[^\d.,]/g,'').replace(',','.');
@@ -518,7 +494,7 @@ function centerXInTrack(el){
   return r.left + r.width/2 - rt.left;
 }
 function clampTrackX(x){
-  const trackWidth = Math.min(track.offsetWidth||MAX_TRACK_WIDTH, MAX_TRACK_WIDTH);
+  const trackWidth = Math.min(track.offsetWidth || MAX_TRACK_WIDTH, MAX_TRACK_WIDTH);
   const maxTravel  = Math.max(trackWidth - container.clientWidth, 0);
   return Math.max(-maxTravel, Math.min(0, x));
 }
@@ -529,11 +505,6 @@ function clampTrackY(y){
 function setChickenLeftByScreenX(xScreen){
   chicken.style.left = (xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET) + 'px';
 }
-function laneCenterLeftOnScreen(laneEl){
-  const laneCenterTrack = centerXInTrack(laneEl);
-  const xScreen         = laneCenterTrack + trackX;
-  return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
-}
 function cssLeftFromScreenX(xScreen){
   return xScreen - CHICKEN_HALF_W + CHICKEN_X_OFFSET;
 }
@@ -542,210 +513,25 @@ function screenXFromCssLeft(cssLeft){
 }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-/* ===================== JUMP + PAN (без изменения траектории) ===================== */
-async function jumpWithPanSync({
-  x0World, y0, x1World, y1,
-  panX0, panX1, panY0, panY1,
-  extraLift = 0
-}) {
-  const g = G_UNIFIED;
-  const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
-  const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
-  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
-
-  // время полёта — КАК БЫЛО
-  let T = Math.sqrt((8 * L) / g);
-  if (T < T_MIN) T = T_MIN;
-  else if (T > T_MAX) T = T_MAX;
-
-  const dx = x1World - x0World;
-  const dy = y1 - y0;
-  const invT = 1 / T;
-  const vx = dx * invT;
-  const vy = (dy + 0.5 * g * T * T) * invT;
-
-  const ms = T * 1000;
-  const t0 = performance.now();
-
-  // кэшируем и отключаем transitions
-  const prevTrTr = track.style.transition;
-  const prevWCTr = track.style.willChange;
-  const prevTrCh = chicken.style.transition;
-  const prevWCCh = chicken.style.willChange;
-  const prevTfCh = chicken.style.transform;
-
-  track.style.transition   = 'none';
-  track.style.willChange   = 'transform';
-  chicken.style.transition = 'none';
-  chicken.style.willChange = 'transform';
-
-  // базовые координаты курицы (относительно которых двигаем transform)
-  const baseLeft   = (parseFloat(chicken.style.left)   || 0);
-  const baseBottom = (parseFloat(chicken.style.bottom) || 0);
-
-  // округление: мобила — целое, десктоп — 0.5px
-  const roundPos = isMobile ? (v)=> (v+0.5|0) : (v)=> Math.round(v*2)/2;
-
-  // ПАУЗИМ всё, что может мешать рендеру в этот короткий промежуток
-  const pausedAnims = [];
-  if (sparklesEl) {
-    sparkleLayers.forEach(l => {
-      pausedAnims.push([l, l.style.animationPlayState]);
-      l.style.animationPlayState = 'paused';
-    });
-  }
-
-  return new Promise(resolve => {
-    function restore(){
-      // вернуть блёстки/стили
-      if (sparklesEl) {
-        pausedAnims.forEach(([el, st]) => el.style.animationPlayState = st || 'running');
-      }
-      track.style.transition   = prevTrTr || '';
-      track.style.willChange   = prevWCTr || '';
-      chicken.style.transition = prevTrCh || '';
-      chicken.style.willChange = prevWCCh || '';
-    }
-
-    function frame(now){
-      let k = (now - t0) / ms; if (k > 1) k = 1;
-      const tt = k * T;
-
-      // панорама (один transform)
-      const curTrackX = (panX0 + (panX1 - panX0) * k) | 0;                 // до целого
-      const curTrackY = (panY0 + (panY1 - panY0) * k) | 0;
-      track.style.transform = `translate3d(${curTrackX}px,${curTrackY}px,0)`;
-
-      // баллистика — КАК БЫЛО
-      const xWorld = x0World + vx * tt;
-      const y      = y0 + vy * tt - 0.5 * g * tt * tt;
-
-      // считаем «cssLeft/bottom», но рисуем через transform
-      const xScreen   = xWorld + curTrackX;
-      const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
-      const bottomVal = roundPos(y);
-
-      // смещения от базы (translateY положит вниз — инвертируем знак)
-      const dxT = cssLeft   - baseLeft;
-      const dyT = bottomVal - baseBottom;
-      chicken.style.transform = `translate3d(${dxT}px,${-dyT}px,0)`;
-
-      if (k < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        // финал: фиксируем реальные значения ОДИН РАЗ
-        trackX = panX1; trackY = panY1;
-        track.style.transform = `translate3d(${trackX}px,${trackY}px,0)`;
-        chicken.style.left   = `${cssLeftFromScreenX(x1World + trackX)}px`;
-        chicken.style.bottom = `${y1}px`;
-        chicken.style.transform = prevTfCh || '';
-        requestAnimationFrame(()=>{ restore(); resolve(); });
-      }
-    }
-    requestAnimationFrame(frame);
-  });
-}
-
-/* ===================== ПАРАБОЛА (резерв, не используется) ===================== */
-function jumpBezier({ x0, y0, x1, y1, extraLift = 0 }){
-  const g = G_UNIFIED;
-  const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
-  const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
-  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
-  let T = Math.sqrt((8 * L) / g);
-  T = Math.max(T_MIN, Math.min(T_MAX, T));
-
-  const dx = x1 - x0, dy = y1 - y0;
-  const vx = dx / T,   vy = (dy + 0.5 * g * T * T) / T;
-
-  const ms = T * 1000, t0 = performance.now();
-
-  const prevTransition = chicken.style.transition;
-  const prevWillChange = chicken.style.willChange;
-  chicken.style.transition = 'none';
-  chicken.style.willChange = 'left, bottom';
-
-  return new Promise(resolve=>{
-    function frame(now){
-      let k = (now - t0) / ms; if (k > 1) k = 1;
-      const tt = k * T;
-
-      const x = x0 + vx * tt;
-      const y = y0 + (vy * tt) - (0.5 * g * tt * tt);
-
-      chicken.style.left   = (Math.round(x * 2) / 2) + 'px';
-      chicken.style.bottom = (Math.round(y * 2) / 2) + 'px';
-
-      if (k < 1){ requestAnimationFrame(frame); }
-      else{
-        chicken.style.left   = x1 + 'px';
-        chicken.style.bottom = y1 + 'px';
-        requestAnimationFrame(()=>{
-          chicken.style.transition = prevTransition || '';
-          chicken.style.willChange = prevWillChange || '';
-          resolve();
-        });
-      }
-    }
-    requestAnimationFrame(frame);
-  });
-}
-
-/* ===================== ФЛИП МОНЕТЫ (с предзагрузкой) ===================== */
-const COIN_IMG_SRC = 'pics/gold-coin.png';
-const coinPreload = new Image();
-let coinReady = false;
-coinPreload.onload = ()=>{ coinReady = true; };
-coinPreload.src = COIN_IMG_SRC;
-
-function flipToCoin(laneEl){
-  if (laneEl.classList.contains('gold-egg')) return;
-  if (laneEl.classList.contains('flipped'))  return;
-
-  const img = laneEl.querySelector('img');
-  const doSwap = () => {
-    img.src = COIN_IMG_SRC;
-    img.alt = 'Coin';
-    img.classList.remove('flip-out');
-    img.classList.add('flip-in');
-    setTimeout(()=> img.classList.remove('flip-in'), 200);
-  };
-
-  laneEl.classList.add('flipped');
-  img.classList.add('flip-out');
-
-  if (coinReady || coinPreload.complete) {
-    setTimeout(doSwap, 200);
-  } else {
-    const tmp = new Image();
-    tmp.onload = () => setTimeout(doSwap, 0);
-    tmp.src = COIN_IMG_SRC;
-  }
-}
-
-/* ===================== БАЛАНС ===================== */
+/* ===================== PERF: balance anim (cancel-safe) ===================== */
+let cancelBalanceAnim = null;
 function animateBalance(from, to, ms = 450){
+  if (typeof cancelBalanceAnim === 'function') cancelBalanceAnim();
+  let rafId = 0, running = true;
+  cancelBalanceAnim = () => { running = false; if (rafId) cancelAnimationFrame(rafId); };
   const start = performance.now();
   let last = start;
-  const stepHzMs = 1000/30; 
+  const stepHzMs = 1000/30;
 
   function frame(t){
-    if (t - last < stepHzMs) { requestAnimationFrame(frame); return; }
+    if (!running) return;
+    if (t - last < stepHzMs) { rafId = requestAnimationFrame(frame); return; }
     last = t;
-
     const k = Math.min((t - start)/ms, 1);
     balanceEl.textContent = (from + (to - from)*k).toFixed(2) + ' EUR';
-    if (k < 1) requestAnimationFrame(frame);
+    if (k < 1) rafId = requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
-}
-
-
-function preciseMul(a,b){
-  const aStr=String(a), bStr=String(b);
-  const aDec=(aStr.split('.')[1]||'').length, bDec=(bStr.split('.')[1]||'').length;
-  const fA=Math.round(a*Math.pow(10,aDec)), fB=Math.round(b*Math.pow(10,bDec));
-  return (fA*fB)/Math.pow(10,aDec+bDec);
+  rafId = requestAnimationFrame(frame);
 }
 
 /* ===================== SPARKLES / POPUP ===================== */
@@ -774,6 +560,53 @@ function openPopup(){
     }));
   }
 }
+function pauseSparkles(){ sparkleLayers.forEach(l => l.style.animationPlayState = 'paused'); }
+function resumeSparkles(){ sparkleLayers.forEach(l => l.style.animationPlayState = 'running'); }
+
+/* ===================== FLIP COIN (clean GPU layer) ===================== */
+const COIN_IMG_SRC = 'pics/gold-coin.png';
+(function preloadCoin(){
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = COIN_IMG_SRC;
+  try { img.decode && img.decode(); } catch(e) {}
+})();
+
+function flipToCoin(laneEl){
+  if (laneEl.classList.contains('gold-egg')) return;
+  if (laneEl.classList.contains('flipped'))  return;
+
+  const img = laneEl.querySelector('img');
+  laneEl.classList.add('flipped');
+
+  img.style.willChange = 'transform';
+  img.style.backfaceVisibility = 'hidden';
+
+  img.classList.add('flip-out');
+
+  const swap = () => {
+    img.src = COIN_IMG_SRC;
+    img.alt = 'Coin';
+    void img.offsetWidth;
+    img.classList.remove('flip-out');
+    img.classList.add('flip-in');
+    setTimeout(() => {
+      img.classList.remove('flip-in');
+      img.style.willChange = '';
+      img.style.backfaceVisibility = '';
+      img.style.transform = '';
+    }, 200);
+  };
+  setTimeout(swap, 200);
+}
+
+/* ===================== BALANCE HELPERS ===================== */
+function preciseMul(a,b){
+  const aStr=String(a), bStr=String(b);
+  const aDec=(aStr.split('.')[1]||'').length, bDec=(bStr.split('.')[1]||'').length;
+  const fA=Math.round(a*Math.pow(10,aDec)), fB=Math.round(b*Math.pow(10,bDec));
+  return (fA*fB)/Math.pow(10,aDec+bDec);
+}
 
 /* ===================== START POSITION ===================== */
 function setInitialChicken(){
@@ -800,12 +633,27 @@ function setInitialChicken(){
 
   chicken.style.bottom = bottomPx + 'px';
   chicken.style.transform = 'translateZ(0)';
-
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 
 /* ===================== INIT ===================== */
 addEventListener('load', () => {
+  // mobile lane bottoms
+  if (isMobile){
+    const bottoms = [290, 395, 500, 610, 715, 780];
+    document.querySelectorAll('.lane').forEach((lane,i)=>{
+      if (bottoms[i]!=null) lane.style.bottom = bottoms[i] + 'px';
+    });
+  }
+  // light image pre-decode on idle
+  const imgs = [
+    'pics/background.png','pics/chicken.png','pics/coef1.png','pics/coef2.png',
+    'pics/coef3.png','pics/coef4.png','pics/coef5.png','pics/gold-egg.png', COIN_IMG_SRC
+  ];
+  const preload = src => { const im=new Image(); im.decoding='async'; im.src=src; try{im.decode&&im.decode();}catch(e){} };
+  if ('requestIdleCallback' in window) requestIdleCallback(()=> imgs.forEach(preload), {timeout:1200});
+  else setTimeout(()=> imgs.forEach(preload), 300);
+
   setInitialChicken();
   balanceEl.textContent = balanceValue.toFixed(2) + ' EUR';
 });
@@ -825,33 +673,121 @@ addEventListener('resize', () => {
   }
 });
 
+/* ===================== JUMP + PAN (trajectory preserved) ===================== */
+async function jumpWithPanSync({
+  x0World, y0, x1World, y1,
+  panX0, panX1, panY0, panY1,
+  extraLift = 0
+}){
+  const g = G_UNIFIED;
+  const arcBase  = isMobile ? ARC_HEIGHT_MOBILE : ARC_HEIGHT_DESKTOP;
+  const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
+  const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
+
+  let T = Math.sqrt((8 * L) / g);
+  if (T < T_MIN) T = T_MIN; else if (T > T_MAX) T = T_MAX;
+
+  const dx = x1World - x0World;
+  const dy = y1 - y0;
+  const invT = 1 / T;
+  const vx = dx * invT;
+  const vy = (dy + 0.5 * g * T * T) * invT;
+
+  const ms = T * 1000;
+  const t0 = performance.now();
+
+  const prevTrTr = track.style.transition;
+  const prevWCTr = track.style.willChange;
+  const prevTrCh = chicken.style.transition;
+  const prevWCCh = chicken.style.willChange;
+  const prevTfCh = chicken.style.transform;
+
+  track.style.transition   = 'none';
+  track.style.willChange   = 'transform';
+  chicken.style.transition = 'none';
+  chicken.style.willChange = 'transform';
+
+  const baseLeft   = (parseFloat(chicken.style.left)   || 0);
+  const baseBottom = (parseFloat(chicken.style.bottom) || 0);
+
+  const roundPos = isMobile ? (v)=> (v+0.5|0) : (v)=> Math.round(v*2)/2;
+
+  return new Promise(resolve => {
+    function restore(){
+      track.style.transition   = prevTrTr || '';
+      track.style.willChange   = prevWCTr || '';
+      chicken.style.transition = prevTrCh || '';
+      chicken.style.willChange = prevWCCh || '';
+    }
+
+    function frame(now){
+      let k = (now - t0) / ms; if (k > 1) k = 1;
+      const tt = k * T;
+
+      const curTrackX = (panX0 + (panX1 - panX0) * k) | 0;
+      const curTrackY = (panY0 + (panY1 - panY0) * k) | 0;
+      track.style.transform = `translate3d(${curTrackX}px,${curTrackY}px,0)`;
+
+      const xWorld = x0World + vx * tt;
+      const y      = y0 + vy * tt - 0.5 * g * tt * tt;
+
+      const xScreen   = xWorld + curTrackX;
+      const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
+      const bottomVal = roundPos(y);
+
+      const dxT = cssLeft   - baseLeft;
+      const dyT = bottomVal - baseBottom;
+
+      // ВАЖНО: bottom растёт вверх, а translateY(+) двигает вниз → ставим минус
+      chicken.style.transform = `translate3d(${dxT}px,${-dyT}px,0)`;
+
+      if (k < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        trackX = panX1; trackY = panY1;
+        track.style.transform = `translate3d(${trackX}px,${trackY}px,0)`;
+        chicken.style.left   = `${cssLeftFromScreenX(x1World + trackX)}px`;
+        chicken.style.bottom = `${y1}px`;
+        chicken.style.transform = prevTfCh || '';
+        requestAnimationFrame(()=>{ restore(); resolve(); });
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
 /* ===================== MAIN CLICK ===================== */
 goBtn.addEventListener('click', async () => {
   if (step >= lanes.length) return;
   if (isJumping) return;
   isJumping = true;
 
+  // UI throttling
   goBtn.classList.add('disabled');
   setTimeout(()=> goBtn.classList.remove('disabled'), 350);
   if (step === 0 && cashBtn) cashBtn.classList.remove('disabled');
 
   const targetLane = lanes[step];
 
-  // Панорама
+  // Пауза всего лишнего на время прыжка
+  if (typeof cancelBalanceAnim === 'function') cancelBalanceAnim();
+  pauseSparkles();
+  chicken.classList.remove('celebrate');
+
+  // Панорама цели
   const laneCenterTrack   = centerXInTrack(targetLane);
   const anchorCenterTrack = centerXInTrack(spawnEl);
   const panX1 = clampTrackX(-(laneCenterTrack - anchorCenterTrack));
   const wantedFall = TRACK_FALL_PX[Math.min(step, TRACK_FALL_PX.length-1)] ?? 0;
   const panY1 = clampTrackY(wantedFall);
-
   const panX0 = trackX;
   const panY0 = trackY;
 
-  // Y-цель приземления
+  // Цели Y
   const baseY = (CHICKEN_BOTTOM_PX[Math.min(step, CHICKEN_BOTTOM_PX.length-1)] ?? BASE_BOTTOM);
   const y1 = baseY + landingRaiseFor(step);
 
-  // Текущая мировая позиция курицы
+  // Текущая позиция курицы (мир)
   const hasX = chicken.style.left && chicken.style.left.endsWith('px');
   const hasY = chicken.style.bottom && chicken.style.bottom.endsWith('px');
   const cssLeft0 = hasX ? parseFloat(chicken.style.left)
@@ -861,23 +797,25 @@ goBtn.addEventListener('click', async () => {
   const y0 = hasY ? parseFloat(chicken.style.bottom)
                   : (START_POS.bottom ?? BASE_BOTTOM);
 
-  // Целевой x (мир)
   const x1World = laneCenterTrack;
 
-  // Доп. лифт с data-arc-lift (если задан)
   const laneLiftAttr = parseInt(targetLane.dataset.arcLift || '0', 10) || 0;
   const extraLift = laneLiftAttr;
 
-  // Полёт + панорама
+  // Прыжок + панорама
   await jumpWithPanSync({
     x0World, y0, x1World, y1,
     panX0, panX1, panY0, panY1,
     extraLift
   });
 
-  // Флип и экономика
+  // Возобновляем sparkles (если не финал — они просто будут вырублены стилями)
+  resumeSparkles();
+
+  // Монета
   flipToCoin(targetLane);
 
+  // Экономика
   const mult = MULTS[step] || 1;
   const from = balanceValue;
   let next   = preciseMul(balanceValue, mult);
@@ -885,7 +823,7 @@ goBtn.addEventListener('click', async () => {
   balanceValue = next;
   animateBalance(from, next, 450);
 
-  // Celebrate/Sparkles/Popup — только на финальном шаге
+  // Финальная анимация
   const isFinal = (step === lanes.length - 1) || targetLane.classList.contains('gold-egg');
   if (isFinal) {
     chicken.classList.remove('celebrate'); void chicken.offsetWidth;
@@ -898,7 +836,7 @@ goBtn.addEventListener('click', async () => {
   isJumping = false;
 });
 
-/* ===================== API ===================== */
+/* ===================== PUBLIC API ===================== */
 function setSpawnChickenLeft(px){
   START_POS.mode  = 'absolute';
   START_POS.left  = Math.round(px);
@@ -916,8 +854,8 @@ function respawnChicken({preserveY=false} = {}){
   requestAnimationFrame(()=> chicken.style.transition = prev || '');
 }
 window.GameSpawn = { setSpawnChickenLeft, setSpawnChickenBottom, respawnChicken };
-</script>
 
+</script>
 
   
 <div id="preloadjs-container" style="visibility: hidden; position: absolute; height: 10px; width: 10px; overflow: hidden; transform: translate(-10px, -10px);"></div>

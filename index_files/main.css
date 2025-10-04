@@ -2083,9 +2083,26 @@ html.is-loading body {
 
 .track { will-change: transform; }
 
+#game { touch-action: none; overscroll-behavior: contain; }
+button { touch-action: manipulation; }
+
 @media (max-width: 540px) {
-  .game-container, .track, .chicken { image-rendering: auto; } /* избегаем дорогих ресемплингов */
+  .game-container, .track, .chicken { image-rendering: auto; } 
 }
+
+.track, .overlay, .chicken, .lanes, .lane img {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
+}
+
+.chicken { will-change: transform; }
+
+@media (max-width: 540px) {
+  .game-container, .track, .chicken { image-rendering: auto; }
+}
+
 
 
 
