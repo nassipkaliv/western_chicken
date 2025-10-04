@@ -685,22 +685,7 @@ addEventListener('resize', () => {
 });
 
 /* ===================== JUMP + PAN (trajectory preserved) ===================== */
-// helper: ждём завершения CSS-перехода transform у элемента (с фолбеком)
-function waitTransformTransition(el, durMs){
-  return new Promise(resolve=>{
-    let done = false;
-    const off = () => { el.removeEventListener('transitionend', onEnd); };
-    const onEnd = (e) => {
-      if (e.target !== el) return;
-      if (e.propertyName && e.propertyName !== 'transform') return;
-      if (done) return;
-      done = true; off(); resolve();
-    };
-    el.addEventListener('transitionend', onEnd, { once: true });
-    // фолбек на случай, если Safari «съел» событие
-    setTimeout(()=>{ if (!done){ done = true; off(); resolve(); } }, Math.max(0, durMs + 60));
-  });
-}
+
 
 async function jumpWithPanSync({
   x0World, y0, x1World, y1,
@@ -712,7 +697,7 @@ async function jumpWithPanSync({
   const stepLift = (LIFT_TWEAK_PX_BY_STEP[Math.min(step, LIFT_TWEAK_PX_BY_STEP.length-1)] || 0);
   const L = Math.max(0, arcBase + stepLift + (extraLift || 0));
 
-  // ВРЕМЯ ПОЛЁТА — как было
+  // Время полёта — как было
   let T = Math.sqrt((8 * L) / g);
   if (T < T_MIN) T = T_MIN; else if (T > T_MAX) T = T_MAX;
 
@@ -725,60 +710,53 @@ async function jumpWithPanSync({
   const ms = T * 1000;
   const t0 = performance.now();
 
-  // кеш стилей
+  // Сохраняем и готовим стили: ВСЁ делаем transform'ами в rAF
   const prevTrTr = track.style.transition;
   const prevTrTf = track.style.transform;
   const prevChTr = chicken.style.transition;
   const prevChWC = chicken.style.willChange;
   const prevChTf = chicken.style.transform;
 
-  // базовые координаты курицы (истинные left/bottom)
-  const baseLeft   = parseFloat(chicken.style.left)   || 0;
-  const baseBottom = parseFloat(chicken.style.bottom) || 0;
-
-  // округление: мобила — целые, десктоп — 0.5px
-  const roundPos = isMobile ? (v)=> (v+0.5|0) : (v)=> Math.round(v*2)/2;
-
-  // 1) Панорама — через CSS transition (едет на композиторе)
-  track.style.transition = `transform ${ms}ms linear`;
-  track.style.transform  = `translate3d(${panX0}px,${panY0}px,0)`;
-  requestAnimationFrame(() => {
-    track.style.transform = `translate3d(${panX1}px,${panY1}px,0)`;
-  });
-
-  // 2) Курица — только transform в rAF
+  track.style.transition   = 'none';
   chicken.style.transition = 'none';
   chicken.style.willChange = 'transform';
 
-  // Поставим на паузу «шумные» анимации
+  // База (истинные координаты), от которой даём translate3d
+  const baseLeft   = parseFloat(chicken.style.left)   || 0;
+  const baseBottom = parseFloat(chicken.style.bottom) || 0;
+
+  // Округление: мобила — целые, десктоп — 0.5px
+  const roundPos = isMobile ? (v)=> Math.round(v) : (v)=> Math.round(v*2)/2;
+
+  // Поставим на паузу шумные анимации (меньше конкуренции за кадр)
   const paused = [];
   if (sparkleLayers.length){
     sparkleLayers.forEach(l => { paused.push([l, l.style.animationPlayState]); l.style.animationPlayState='paused'; });
   }
 
-  // rAF-цикл: считаем точную траекторию и рисуем translate3d
+  // ЕДИНЫЙ rAF-цикл: считаем и трек, и курицу синхронно (нет гонок/рывков)
   await new Promise(resolveRAF=>{
     function frame(now){
       let k = (now - t0) / ms; if (k > 1) k = 1;
       const tt = k * T;
 
-      // виртуальная панорама для X-экранной координаты курицы
+      // Панорама — сами линейно интерполируем (без CSS transitions)
       const curTrackX = panX0 + (panX1 - panX0) * k;
+      const curTrackY = panY0 + (panY1 - panY0) * k;
+      track.style.transform = `translate3d(${(curTrackX|0)}px,${(curTrackY|0)}px,0)`;
 
-      // баллистика — как было
+      // Баллистика — как было
       const xWorld  = x0World + vx * tt;
       const y       = y0 + vy * tt - 0.5 * g * tt * tt;
 
-      // перевод в привычные cssLeft/bottom
+      // Экранные координаты → привычные cssLeft/bottom
       const xScreen   = xWorld + curTrackX;
       const cssLeft   = roundPos(cssLeftFromScreenX(xScreen));
       const bottomVal = roundPos(y);
 
-      // оффсеты относительно базовых left/bottom
+      // Смещения относительно базы (translateY(+) — вниз, bottom(+) — вверх)
       const dxT = cssLeft   - baseLeft;
       const dyT = bottomVal - baseBottom;
-
-      // translateY(+) двигает вниз, а bottom(+) — вверх → инвертируем знак
       chicken.style.transform = `translate3d(${dxT}px,${-dyT}px,0)`;
 
       if (k < 1) {
@@ -790,21 +768,17 @@ async function jumpWithPanSync({
     requestAnimationFrame(frame);
   });
 
-  // ВАЖНО: НЕ фиксируем курицу прямо сейчас.
-  // Сначала ждём, пока трек ДОЕДЕТ CSS-переходом до panX1/panY1 (transitionend).
-  await waitTransformTransition(track, ms);
-
-  // Теперь трек точно на месте → можно «зацементировать» итог
+  // Финал: фиксируем итог ОДНИМ коммитом, без переходов
   trackX = panX1; trackY = panY1;
-  chicken.style.left   = `${cssLeftFromScreenX(x1World + trackX)}px`;
-  chicken.style.bottom = `${y1}px`;
+  track.style.transform = `translate3d(${trackX}px,${trackY}px,0)`;
+
+  chicken.style.left     = `${cssLeftFromScreenX(x1World + trackX)}px`;
+  chicken.style.bottom   = `${y1}px`;
   chicken.style.transform = prevChTf || '';
 
-  // вернуть стили/анимации
+  // Возвращаем стили/анимации
   track.style.transition   = prevTrTr || '';
-  // оставим transform как есть (уже на panX1/panY1); если надо — верни prevTrTf
-  // track.style.transform = prevTrTf || `translate3d(${trackX}px,${trackY}px,0)`;
-
+  // transform у трека оставляем финальным (prevTrTf можно вернуть, если нужно)
   chicken.style.transition = prevChTr || '';
   chicken.style.willChange = prevChWC || '';
   paused.forEach(([el, st]) => el.style.animationPlayState = st || 'running');
