@@ -369,16 +369,13 @@
 
 
   <script>
-  // Покажем прелоадер сразу (он видим по CSS), скроем после полной загрузки
   window.addEventListener('load', () => {
     const preloader = document.querySelector('.preloader');
     document.documentElement.classList.remove('is-loading');
-    // вернём тело
     document.body.style.visibility = '';
     document.body.style.opacity = '';
     document.body.style.overflow = '';
 
-    // плавно скрыть прелоадер
     if (preloader) preloader.classList.add('hide');
   });
 </script>
@@ -432,7 +429,7 @@ const CONFIG = {
     SPARKLES_TO_POPUP_DELAY: 1100,
     TRACK_FALL_PX:     [100, 205, 310, 430, 510, 640],
     CHICKEN_BOTTOM_PX: [-18, -11, -11,  -33,  -10,  -29],
-    START_POS: { mode: 'absolute', left: 22, bottom: 15 }
+    START_POS: { mode: 'absolute', left: 48, bottom: 15 }
   }
 };
 function pickConfig(){ return matchMedia('(max-width:540px)').matches ? CONFIG.mobile : CONFIG.desktop; }
