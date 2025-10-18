@@ -2250,7 +2250,7 @@ button { touch-action: manipulation; }
 
 	.game {
 		position: relative;
-		min-height: 63rem;
+		min-height: 65rem;
 		margin-bottom: 0rem;
 		z-index: 1
 	}
